@@ -21,7 +21,6 @@ export interface SysParamsState {
   allowedDashboardIds: string[];
   edgesSupportEnabled: boolean;
   hasRepository: boolean;
-  tbelEnabled: boolean;
 }
 
 export interface AuthPayload extends SysParamsState {

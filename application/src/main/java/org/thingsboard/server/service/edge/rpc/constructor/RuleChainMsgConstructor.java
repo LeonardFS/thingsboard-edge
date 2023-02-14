@@ -35,13 +35,13 @@ import org.thingsboard.server.service.edge.rpc.constructor.rule.RuleChainMetadat
 @TbCoreComponent
 public class RuleChainMsgConstructor {
 
-    public RuleChainUpdateMsg constructRuleChainUpdatedMsg(UpdateMsgType msgType, RuleChain ruleChain, boolean isRoot) {
+    public RuleChainUpdateMsg constructRuleChainUpdatedMsg(RuleChainId edgeRootRuleChainId, UpdateMsgType msgType, RuleChain ruleChain) {
         RuleChainUpdateMsg.Builder builder = RuleChainUpdateMsg.newBuilder()
                 .setMsgType(msgType)
                 .setIdMSB(ruleChain.getId().getId().getMostSignificantBits())
                 .setIdLSB(ruleChain.getId().getId().getLeastSignificantBits())
                 .setName(ruleChain.getName())
-                .setRoot(isRoot)
+                .setRoot(ruleChain.getId().equals(edgeRootRuleChainId))
                 .setDebugMode(ruleChain.isDebugMode())
                 .setConfiguration(JacksonUtil.toString(ruleChain.getConfiguration()));
         if (ruleChain.getFirstRuleNodeId() != null) {

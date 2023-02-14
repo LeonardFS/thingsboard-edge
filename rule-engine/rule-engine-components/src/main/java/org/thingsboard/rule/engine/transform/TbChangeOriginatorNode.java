@@ -25,11 +25,9 @@ import org.thingsboard.rule.engine.api.TbNodeConfiguration;
 import org.thingsboard.rule.engine.api.TbNodeException;
 import org.thingsboard.rule.engine.api.util.TbNodeUtils;
 import org.thingsboard.rule.engine.util.EntitiesAlarmOriginatorIdAsyncLoader;
-import org.thingsboard.rule.engine.util.EntitiesByNameAndTypeLoader;
 import org.thingsboard.rule.engine.util.EntitiesCustomerIdAsyncLoader;
 import org.thingsboard.rule.engine.util.EntitiesRelatedEntityIdAsyncLoader;
-import org.thingsboard.server.common.data.EntityType;
-import org.thingsboard.server.common.data.StringUtils;
+import org.thingsboard.rule.engine.util.EntitiesTenantIdAsyncLoader;
 import org.thingsboard.server.common.data.id.EntityId;
 import org.thingsboard.server.common.data.plugin.ComponentType;
 import org.thingsboard.server.common.msg.TbMsg;
@@ -57,7 +55,6 @@ public class TbChangeOriginatorNode extends TbAbstractTransformNode {
     protected static final String TENANT_SOURCE = "TENANT";
     protected static final String RELATED_SOURCE = "RELATED";
     protected static final String ALARM_ORIGINATOR_SOURCE = "ALARM_ORIGINATOR";
-    protected static final String ENTITY_SOURCE = "ENTITY";
 
     private TbChangeOriginatorNodeConfiguration config;
 
@@ -70,7 +67,7 @@ public class TbChangeOriginatorNode extends TbAbstractTransformNode {
 
     @Override
     protected ListenableFuture<List<TbMsg>> transform(TbContext ctx, TbMsg msg) {
-        ListenableFuture<? extends EntityId> newOriginator = getNewOriginator(ctx, msg);
+        ListenableFuture<? extends EntityId> newOriginator = getNewOriginator(ctx, msg.getOriginator());
         return Futures.transform(newOriginator, n -> {
             if (n == null || n.isNullUid()) {
                 return null;
@@ -79,32 +76,23 @@ public class TbChangeOriginatorNode extends TbAbstractTransformNode {
         }, ctx.getDbCallbackExecutor());
     }
 
-    private ListenableFuture<? extends EntityId> getNewOriginator(TbContext ctx, TbMsg msg) {
+    private ListenableFuture<? extends EntityId> getNewOriginator(TbContext ctx, EntityId original) {
         switch (config.getOriginatorSource()) {
             case CUSTOMER_SOURCE:
-                return EntitiesCustomerIdAsyncLoader.findEntityIdAsync(ctx, msg.getOriginator());
+                return EntitiesCustomerIdAsyncLoader.findEntityIdAsync(ctx, original);
             case TENANT_SOURCE:
-                return Futures.immediateFuture(ctx.getTenantId());
+                return EntitiesTenantIdAsyncLoader.findEntityIdAsync(ctx, original);
             case RELATED_SOURCE:
-                return EntitiesRelatedEntityIdAsyncLoader.findEntityAsync(ctx, msg.getOriginator(), config.getRelationsQuery());
+                return EntitiesRelatedEntityIdAsyncLoader.findEntityAsync(ctx, original, config.getRelationsQuery());
             case ALARM_ORIGINATOR_SOURCE:
-                return EntitiesAlarmOriginatorIdAsyncLoader.findEntityIdAsync(ctx, msg.getOriginator());
-            case ENTITY_SOURCE:
-                EntityType entityType = EntityType.valueOf(config.getEntityType());
-                String entityName = TbNodeUtils.processPattern(config.getEntityNamePattern(), msg);
-                try {
-                    EntityId targetEntity = EntitiesByNameAndTypeLoader.findEntityId(ctx, entityType, entityName);
-                    return Futures.immediateFuture(targetEntity);
-                } catch (IllegalStateException e) {
-                    return Futures.immediateFailedFuture(e);
-                }
+                return EntitiesAlarmOriginatorIdAsyncLoader.findEntityIdAsync(ctx, original);
             default:
                 return Futures.immediateFailedFuture(new IllegalStateException("Unexpected originator source " + config.getOriginatorSource()));
         }
     }
 
     private void validateConfig(TbChangeOriginatorNodeConfiguration conf) {
-        HashSet<String> knownSources = Sets.newHashSet(CUSTOMER_SOURCE, TENANT_SOURCE, RELATED_SOURCE, ALARM_ORIGINATOR_SOURCE, ENTITY_SOURCE);
+        HashSet<String> knownSources = Sets.newHashSet(CUSTOMER_SOURCE, TENANT_SOURCE, RELATED_SOURCE, ALARM_ORIGINATOR_SOURCE);
         if (!knownSources.contains(conf.getOriginatorSource())) {
             log.error("Unsupported source [{}] for TbChangeOriginatorNode", conf.getOriginatorSource());
             throw new IllegalArgumentException("Unsupported source TbChangeOriginatorNode" + conf.getOriginatorSource());
@@ -118,18 +106,10 @@ public class TbChangeOriginatorNode extends TbAbstractTransformNode {
             }
         }
 
-        if (conf.getOriginatorSource().equals(ENTITY_SOURCE)) {
-            if (conf.getEntityType() == null) {
-                log.error("Entity type not specified for [{}]", ENTITY_SOURCE);
-                throw new IllegalArgumentException("Wrong config for [{}] in TbChangeOriginatorNode!" + ENTITY_SOURCE);
-            }
-            if (StringUtils.isEmpty(conf.getEntityNamePattern())) {
-                log.error("EntityNamePattern not specified for type [{}]", conf.getEntityType());
-                throw new IllegalArgumentException("Wrong config for [{}] in TbChangeOriginatorNode!" + ENTITY_SOURCE);
-            }
-            EntitiesByNameAndTypeLoader.checkEntityType(EntityType.valueOf(conf.getEntityType()));
-        }
-
     }
 
+    @Override
+    public void destroy() {
+
+    }
 }

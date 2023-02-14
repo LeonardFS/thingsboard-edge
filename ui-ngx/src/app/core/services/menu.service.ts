@@ -317,29 +317,11 @@ export class MenuService {
       },
       {
         id: guid(),
-        name: 'profiles.profiles',
-        type: 'toggle',
-        path: '/profiles',
-        height: '80px',
-        icon: 'badge',
-        pages: [
-          {
-            id: guid(),
-            name: 'device-profile.device-profiles',
-            type: 'link',
-            path: '/profiles/deviceProfiles',
-            icon: 'mdi:alpha-d-box',
-            isMdiIcon: true
-          },
-          {
-            id: guid(),
-            name: 'asset-profile.asset-profiles',
-            type: 'link',
-            path: '/profiles/assetProfiles',
-            icon: 'mdi:alpha-a-box',
-            isMdiIcon: true
-          }
-        ]
+        name: 'device-profile.device-profiles',
+        type: 'link',
+        path: '/deviceProfiles',
+        icon: 'mdi:alpha-d-box',
+        isMdiIcon: true
       },
       {
         id: guid(),
@@ -515,12 +497,6 @@ export class MenuService {
             name: 'asset.assets',
             icon: 'domain',
             path: '/assets'
-          },
-          {
-            name: 'asset-profile.asset-profiles',
-            icon: 'mdi:alpha-a-box',
-            isMdiIcon: true,
-            path: '/profiles/assetProfiles'
           }
         ]
       },
@@ -536,7 +512,7 @@ export class MenuService {
             name: 'device-profile.device-profiles',
             icon: 'mdi:alpha-d-box',
             isMdiIcon: true,
-            path: '/profiles/deviceProfiles'
+            path: '/deviceProfiles'
           },
           {
             name: 'ota-update.ota-updates',

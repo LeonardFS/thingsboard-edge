@@ -61,8 +61,6 @@ export class WidgetsBundlesTableConfigResolver implements Resolve<EntityTableCon
     this.config.entityResources = entityTypeResources.get(EntityType.WIDGETS_BUNDLE);
     this.config.defaultSortOrder = {property: 'title', direction: Direction.ASC};
 
-    this.config.rowPointer = true;
-
     this.config.entityTitle = (widgetsBundle) => widgetsBundle ?
       widgetsBundle.title : '';
 
@@ -92,16 +90,16 @@ export class WidgetsBundlesTableConfigResolver implements Resolve<EntityTableCon
 
     this.config.cellActionDescriptors.push(
       {
+        name: this.translate.instant('widgets-bundle.open-widgets-bundle'),
+        icon: 'now_widgets',
+        isEnabled: () => true,
+        onAction: ($event, entity) => this.openWidgetsBundle($event, entity)
+      },
+      {
         name: this.translate.instant('widgets-bundle.export'),
         icon: 'file_download',
         isEnabled: () => true,
         onAction: ($event, entity) => this.exportWidgetsBundle($event, entity)
-      },
-      {
-        name: this.translate.instant('widgets-bundle.widgets-bundle-details'),
-        icon: 'edit',
-        isEnabled: () => true,
-        onAction: ($event, entity) => this.config.toggleEntityDetails($event, entity)
       }
     );
 
@@ -116,15 +114,6 @@ export class WidgetsBundlesTableConfigResolver implements Resolve<EntityTableCon
     this.config.saveEntity = widgetsBundle => this.widgetsService.saveWidgetsBundle(widgetsBundle);
     this.config.deleteEntity = id => this.widgetsService.deleteWidgetsBundle(id.id);
     this.config.onEntityAction = action => this.onWidgetsBundleAction(action);
-
-    this.config.handleRowClick = ($event, widgetsBundle) => {
-      if (this.config.isDetailsOpen()) {
-        this.config.toggleEntityDetails($event, widgetsBundle);
-      } else {
-        this.openWidgetsBundle($event, widgetsBundle);
-      }
-      return true;
-    };
   }
 
   resolve(): EntityTableConfig<WidgetsBundle> {
@@ -136,7 +125,7 @@ export class WidgetsBundlesTableConfigResolver implements Resolve<EntityTableCon
     const authState = getCurrentAuthState(this.store);
     this.config.entitiesFetchFunction = pageLink => this.widgetsService.getWidgetBundles(pageLink);
 
-    // @voba - edge read-only
+    // edge read-only
     this.config.detailsReadonly = () => true;
     this.config.deleteEnabled = () => false;
     this.config.addEnabled = false;

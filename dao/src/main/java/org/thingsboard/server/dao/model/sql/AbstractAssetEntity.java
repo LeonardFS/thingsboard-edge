@@ -22,7 +22,6 @@ import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 import org.thingsboard.server.common.data.asset.Asset;
 import org.thingsboard.server.common.data.id.AssetId;
-import org.thingsboard.server.common.data.id.AssetProfileId;
 import org.thingsboard.server.common.data.id.CustomerId;
 import org.thingsboard.server.common.data.id.TenantId;
 import org.thingsboard.server.dao.model.BaseSqlEntity;
@@ -70,9 +69,6 @@ public abstract class AbstractAssetEntity<T extends Asset> extends BaseSqlEntity
     @Column(name = ModelConstants.ASSET_ADDITIONAL_INFO_PROPERTY)
     private JsonNode additionalInfo;
 
-    @Column(name = ModelConstants.ASSET_ASSET_PROFILE_ID_PROPERTY, columnDefinition = "uuid")
-    private UUID assetProfileId;
-
     @Column(name = EXTERNAL_ID_PROPERTY)
     private UUID externalId;
 
@@ -91,9 +87,6 @@ public abstract class AbstractAssetEntity<T extends Asset> extends BaseSqlEntity
         if (asset.getCustomerId() != null) {
             this.customerId = asset.getCustomerId().getId();
         }
-        if (asset.getAssetProfileId() != null) {
-            this.assetProfileId = asset.getAssetProfileId().getId();
-        }
         this.name = asset.getName();
         this.type = asset.getType();
         this.label = asset.getLabel();
@@ -108,7 +101,6 @@ public abstract class AbstractAssetEntity<T extends Asset> extends BaseSqlEntity
         this.setCreatedTime(assetEntity.getCreatedTime());
         this.tenantId = assetEntity.getTenantId();
         this.customerId = assetEntity.getCustomerId();
-        this.assetProfileId = assetEntity.getAssetProfileId();
         this.type = assetEntity.getType();
         this.name = assetEntity.getName();
         this.label = assetEntity.getLabel();
@@ -139,9 +131,6 @@ public abstract class AbstractAssetEntity<T extends Asset> extends BaseSqlEntity
         }
         if (customerId != null) {
             asset.setCustomerId(new CustomerId(customerId));
-        }
-        if (assetProfileId != null) {
-            asset.setAssetProfileId(new AssetProfileId(assetProfileId));
         }
         asset.setName(name);
         asset.setType(type);

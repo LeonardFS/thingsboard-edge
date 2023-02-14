@@ -140,7 +140,6 @@ public class DefaultAlarmQueryRepository implements AlarmQueryRepository {
                 selectPart.append(" a.originator_id as entity_id ");
             }
             EntityDataSortOrder sortOrder = pageLink.getSortOrder();
-            String textSearchQuery = buildTextSearchQuery(ctx, query.getAlarmFields(), pageLink.getTextSearch());
             if (sortOrder != null && sortOrder.getKey().getType().equals(EntityKeyType.ALARM_FIELD)) {
                 String sortOrderKey = sortOrder.getKey().getKey();
                 sortPart.append(alarmFieldColumnMap.getOrDefault(sortOrderKey, sortOrderKey))
@@ -167,11 +166,7 @@ public class DefaultAlarmQueryRepository implements AlarmQueryRepository {
                 }
                 joinPart.append(" as e(id, priority)) e ");
                 if (pageLink.isSearchPropagatedAlarms()) {
-                    if (textSearchQuery.isEmpty()) {
-                        joinPart.append("on ea.entity_id = e.id");
-                    } else {
-                        joinPart.append("on a.entity_id = e.id");
-                    }
+                    joinPart.append("on ea.entity_id = e.id");
                 } else {
                     joinPart.append("on a.originator_id = e.id");
                 }
@@ -235,11 +230,13 @@ public class DefaultAlarmQueryRepository implements AlarmQueryRepository {
                 }
             }
 
-            String mainQuery = String.format("%s%s", selectPart, fromPart);
-            if (textSearchQuery.isEmpty()) {
-                mainQuery = String.format("%s%s%s", mainQuery, joinPart, wherePart);
+            String textSearchQuery = buildTextSearchQuery(ctx, query.getAlarmFields(), pageLink.getTextSearch());
+            String mainQuery;
+            if (!textSearchQuery.isEmpty()) {
+                mainQuery = selectPart.toString() + fromPart.toString() + wherePart.toString();
+                mainQuery = String.format("select * from (%s) a %s WHERE %s", mainQuery, joinPart, textSearchQuery);
             } else {
-                mainQuery = String.format("select * from (%s%s) a %s WHERE %s", mainQuery, wherePart, joinPart, textSearchQuery);
+                mainQuery = selectPart.toString() + fromPart.toString() + joinPart.toString() + wherePart.toString();
             }
             String countQuery = String.format("select count(*) from (%s) result", mainQuery);
             long queryTs = System.currentTimeMillis();

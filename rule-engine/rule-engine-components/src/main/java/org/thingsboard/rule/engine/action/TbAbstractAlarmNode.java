@@ -26,7 +26,6 @@ import org.thingsboard.rule.engine.api.TbNode;
 import org.thingsboard.rule.engine.api.TbNodeConfiguration;
 import org.thingsboard.rule.engine.api.TbNodeException;
 import org.thingsboard.server.common.data.DataConstants;
-import org.thingsboard.server.common.data.script.ScriptLanguage;
 import org.thingsboard.server.common.msg.TbMsg;
 import org.thingsboard.server.common.msg.TbMsgMetaData;
 import org.thingsboard.common.util.JacksonUtil;
@@ -42,13 +41,12 @@ public abstract class TbAbstractAlarmNode<C extends TbAbstractAlarmNodeConfigura
     private final ObjectMapper mapper = new ObjectMapper();
 
     protected C config;
-    private ScriptEngine scriptEngine;
+    private ScriptEngine buildDetailsJsEngine;
 
     @Override
     public void init(TbContext ctx, TbNodeConfiguration configuration) throws TbNodeException {
         this.config = loadAlarmNodeConfig(configuration);
-        scriptEngine = ctx.createScriptEngine(config.getScriptLang(),
-                ScriptLanguage.TBEL.equals(config.getScriptLang()) ? config.getAlarmDetailsBuildTbel() : config.getAlarmDetailsBuildJs());
+        this.buildDetailsJsEngine = ctx.createJsScriptEngine(config.getAlarmDetailsBuildJs());
     }
 
     protected abstract C loadAlarmNodeConfig(TbNodeConfiguration configuration) throws TbNodeException;
@@ -82,7 +80,7 @@ public abstract class TbAbstractAlarmNode<C extends TbAbstractAlarmNodeConfigura
                 metaData.putValue(PREV_ALARM_DETAILS, mapper.writeValueAsString(previousDetails));
                 dummyMsg = ctx.transformMsg(msg, msg.getType(), msg.getOriginator(), metaData, msg.getData());
             }
-            return scriptEngine.executeJsonAsync(dummyMsg);
+            return buildDetailsJsEngine.executeJsonAsync(dummyMsg);
         } catch (Exception e) {
             return Futures.immediateFailedFuture(e);
         }
@@ -104,8 +102,8 @@ public abstract class TbAbstractAlarmNode<C extends TbAbstractAlarmNodeConfigura
 
     @Override
     public void destroy() {
-        if (scriptEngine != null) {
-            scriptEngine.destroy();
+        if (buildDetailsJsEngine != null) {
+            buildDetailsJsEngine.destroy();
         }
     }
 

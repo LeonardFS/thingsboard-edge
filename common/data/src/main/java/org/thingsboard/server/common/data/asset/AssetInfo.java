@@ -24,14 +24,10 @@ import org.thingsboard.server.common.data.id.AssetId;
 @Data
 public class AssetInfo extends Asset {
 
-    @ApiModelProperty(position = 10, value = "Title of the Customer that owns the asset.", accessMode = ApiModelProperty.AccessMode.READ_ONLY)
+    @ApiModelProperty(position = 9, value = "Title of the Customer that owns the asset.", accessMode = ApiModelProperty.AccessMode.READ_ONLY)
     private String customerTitle;
-    @ApiModelProperty(position = 11, value = "Indicates special 'Public' Customer that is auto-generated to use the assets on public dashboards.", accessMode = ApiModelProperty.AccessMode.READ_ONLY)
+    @ApiModelProperty(position = 10, value = "Indicates special 'Public' Customer that is auto-generated to use the assets on public dashboards.", accessMode = ApiModelProperty.AccessMode.READ_ONLY)
     private boolean customerIsPublic;
-
-    @ApiModelProperty(position = 12, value = "Name of the corresponding Asset Profile.", accessMode = ApiModelProperty.AccessMode.READ_ONLY)
-    private String assetProfileName;
-
 
     public AssetInfo() {
         super();
@@ -41,10 +37,9 @@ public class AssetInfo extends Asset {
         super(assetId);
     }
 
-    public AssetInfo(Asset asset, String customerTitle, boolean customerIsPublic, String assetProfileName) {
+    public AssetInfo(Asset asset, String customerTitle, boolean customerIsPublic) {
         super(asset);
         this.customerTitle = customerTitle;
         this.customerIsPublic = customerIsPublic;
-        this.assetProfileName = assetProfileName;
     }
 }

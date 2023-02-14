@@ -97,8 +97,8 @@ public interface TbNotificationEntityService {
     void notifyAssignDeviceToTenant(TenantId tenantId, TenantId newTenantId, DeviceId deviceId, CustomerId customerId,
                                     Device device, Tenant tenant, User user, Object... additionalInfo);
 
-    void notifyCreateOrUpdateOrDeleteEdge(TenantId tenantId, EdgeId edgeId, CustomerId customerId, Edge edge, ActionType actionType,
-                                          User user, Object... additionalInfo);
+    void notifyEdge(TenantId tenantId, EdgeId edgeId, CustomerId customerId, Edge edge, ActionType actionType,
+                    User user, Object... additionalInfo);
 
     void notifyCreateOrUpdateAlarm(Alarm alarm, ActionType actionType, User user, boolean notifyCloud, Object... additionalInfo);
 
@@ -110,6 +110,4 @@ public interface TbNotificationEntityService {
 
     void notifyRelation(TenantId tenantId, CustomerId customerId, EntityRelation relation, User user,
                         ActionType actionType, Object... additionalInfo);
-
-    void sendNotificationMsgToCloud(TenantId tenantId, EntityId entityId, EdgeEventActionType cloudEventAction);
 }

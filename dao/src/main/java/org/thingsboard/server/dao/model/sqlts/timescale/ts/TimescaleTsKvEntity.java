@@ -62,7 +62,6 @@ import static org.thingsboard.server.dao.sqlts.timescale.AggregationRepository.F
                                         @ColumnResult(name = "doubleCountValue", type = Long.class),
                                         @ColumnResult(name = "strValue", type = String.class),
                                         @ColumnResult(name = "aggType", type = String.class),
-                                        @ColumnResult(name = "maxAggTs", type = Long.class),
                                 }
                         ),
                 }),
@@ -79,7 +78,6 @@ import static org.thingsboard.server.dao.sqlts.timescale.AggregationRepository.F
                                         @ColumnResult(name = "longValueCount", type = Long.class),
                                         @ColumnResult(name = "doubleValueCount", type = Long.class),
                                         @ColumnResult(name = "jsonValueCount", type = Long.class),
-                                        @ColumnResult(name = "maxAggTs", type = Long.class),
                                 }
                         )
                 }),
@@ -116,8 +114,7 @@ public final class TimescaleTsKvEntity extends AbstractTsKvEntity {
     public TimescaleTsKvEntity() {
     }
 
-    public TimescaleTsKvEntity(Long tsBucket, Long interval, Long longValue, Double doubleValue, Long longCountValue, Long doubleCountValue, String strValue, String aggType, Long aggValuesLastTs) {
-        super(aggValuesLastTs);
+    public TimescaleTsKvEntity(Long tsBucket, Long interval, Long longValue, Double doubleValue, Long longCountValue, Long doubleCountValue, String strValue, String aggType) {
         if (!StringUtils.isEmpty(strValue)) {
             this.strValue = strValue;
         }
@@ -138,7 +135,6 @@ public final class TimescaleTsKvEntity extends AbstractTsKvEntity {
                     } else {
                         this.doubleValue = 0.0;
                     }
-                    this.aggValuesCount = totalCount;
                     break;
                 case SUM:
                     if (doubleCountValue > 0) {
@@ -161,8 +157,7 @@ public final class TimescaleTsKvEntity extends AbstractTsKvEntity {
         }
     }
 
-    public TimescaleTsKvEntity(Long tsBucket, Long interval, Long booleanValueCount, Long strValueCount, Long longValueCount, Long doubleValueCount, Long jsonValueCount, Long aggValuesLastTs) {
-        super(aggValuesLastTs);
+    public TimescaleTsKvEntity(Long tsBucket, Long interval, Long booleanValueCount, Long strValueCount, Long longValueCount, Long doubleValueCount, Long jsonValueCount) {
         if (!isAllNull(tsBucket, interval, booleanValueCount, strValueCount, longValueCount, doubleValueCount, jsonValueCount)) {
             this.ts = tsBucket + interval / 2;
             if (booleanValueCount != 0) {

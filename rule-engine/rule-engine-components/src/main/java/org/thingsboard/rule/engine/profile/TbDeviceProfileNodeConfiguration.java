@@ -16,7 +16,7 @@
 package org.thingsboard.rule.engine.profile;
 
 import lombok.Data;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.thingsboard.rule.engine.api.NodeConfiguration;
 
 @Data

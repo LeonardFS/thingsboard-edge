@@ -31,7 +31,6 @@ import org.thingsboard.server.common.data.id.EntityIdFactory;
 import org.thingsboard.server.common.data.id.RuleChainId;
 import org.thingsboard.server.common.data.id.RuleNodeId;
 import org.thingsboard.server.common.data.id.TenantId;
-import org.thingsboard.server.common.data.page.PageLink;
 import org.thingsboard.server.common.data.plugin.ComponentLifecycleEvent;
 import org.thingsboard.server.common.data.rule.NodeConnectionInfo;
 import org.thingsboard.server.common.data.rule.RuleChain;
@@ -60,8 +59,7 @@ public class RuleChainCloudProcessor extends BaseCloudProcessor {
     @Autowired
     private RuleChainService ruleChainService;
 
-    public ListenableFuture<Void> processRuleChainMsgFromCloud(TenantId tenantId, RuleChainUpdateMsg ruleChainUpdateMsg,
-                                                               Long queueStartTs) {
+    public ListenableFuture<Void> processRuleChainMsgFromCloud(TenantId tenantId, RuleChainUpdateMsg ruleChainUpdateMsg) {
         try {
             RuleChainId ruleChainId = new RuleChainId(new UUID(ruleChainUpdateMsg.getIdMSB(), ruleChainUpdateMsg.getIdLSB()));
             switch (ruleChainUpdateMsg.getMsgType()) {
@@ -75,7 +73,6 @@ public class RuleChainCloudProcessor extends BaseCloudProcessor {
                         ruleChain.setId(ruleChainId);
                         ruleChain.setCreatedTime(Uuids.unixTimestamp(ruleChainId.getId()));
                         ruleChain.setTenantId(tenantId);
-                        ruleChain.setRoot(false);
                     }
                     ruleChain.setName(ruleChainUpdateMsg.getName());
                     if (ruleChainUpdateMsg.hasFirstRuleNodeIdMSB() && ruleChainUpdateMsg.hasFirstRuleNodeIdLSB()) {
@@ -87,18 +84,17 @@ public class RuleChainCloudProcessor extends BaseCloudProcessor {
                         ruleChain.setFirstRuleNodeId(null);
                     }
                     ruleChain.setConfiguration(JacksonUtil.toJsonNode(ruleChainUpdateMsg.getConfiguration()));
+                    ruleChain.setRoot(false);
                     ruleChain.setType(RuleChainType.CORE);
                     ruleChain.setDebugMode(ruleChainUpdateMsg.getDebugMode());
                     ruleChainService.saveRuleChain(ruleChain);
 
                     if (ruleChainUpdateMsg.getRoot()) {
                         ruleChainService.setRootRuleChain(tenantId, ruleChainId);
-                    } else {
-                        setRootIfFirstRuleChain(tenantId, ruleChainId);
                     }
                     tbClusterService.broadcastEntityStateChangeEvent(ruleChain.getTenantId(), ruleChain.getId(),
                             created ? ComponentLifecycleEvent.CREATED : ComponentLifecycleEvent.UPDATED);
-                    return cloudEventService.saveCloudEventAsync(tenantId, CloudEventType.RULE_CHAIN, EdgeEventActionType.RULE_CHAIN_METADATA_REQUEST, ruleChainId, null, queueStartTs);
+                    return saveCloudEvent(tenantId, CloudEventType.RULE_CHAIN, EdgeEventActionType.RULE_CHAIN_METADATA_REQUEST, ruleChainId, null);
                 case ENTITY_DELETED_RPC_MESSAGE:
                     RuleChain ruleChainById = ruleChainService.findRuleChainById(tenantId, ruleChainId);
                     if (ruleChainById != null) {
@@ -125,14 +121,6 @@ public class RuleChainCloudProcessor extends BaseCloudProcessor {
             return Futures.immediateFailedFuture(new RuntimeException(errMsg, e));
         }
         return Futures.immediateFuture(null);
-    }
-
-    private void setRootIfFirstRuleChain(TenantId tenantId, RuleChainId ruleChainId) {
-        // @voba - this is hack because of incorrect isRoot flag in the first rule chain
-        long ruleChainsCnt = ruleChainService.findTenantRuleChainsByType(tenantId, RuleChainType.CORE, new PageLink(100)).getTotalElements();
-        if (ruleChainsCnt == 1) {
-            ruleChainService.setRootRuleChain(tenantId, ruleChainId);
-        }
     }
 
     public ListenableFuture<Void> processRuleChainMetadataMsgFromCloud(TenantId tenantId, RuleChainMetadataUpdateMsg ruleChainMetadataUpdateMsg) {
@@ -209,8 +197,8 @@ public class RuleChainCloudProcessor extends BaseCloudProcessor {
         return result;
     }
 
-    public UplinkMsg convertRuleChainMetadataRequestEventToUplink(CloudEvent cloudEvent) {
-        EntityId ruleChainId = EntityIdFactory.getByCloudEventTypeAndUuid(cloudEvent.getType(), cloudEvent.getEntityId());
+    public UplinkMsg processRuleChainMetadataRequestMsgToCloud(CloudEvent cloudEvent) throws IOException {
+        EntityId ruleChainId = EntityIdFactory.getByCloudEventTypeAndUuid(cloudEvent.getCloudEventType(), cloudEvent.getEntityId());
         RuleChainMetadataRequestMsg ruleChainMetadataRequestMsg = RuleChainMetadataRequestMsg.newBuilder()
                 .setRuleChainIdMSB(ruleChainId.getId().getMostSignificantBits())
                 .setRuleChainIdLSB(ruleChainId.getId().getLeastSignificantBits())

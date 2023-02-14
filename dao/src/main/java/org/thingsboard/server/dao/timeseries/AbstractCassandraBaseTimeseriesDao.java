@@ -88,24 +88,12 @@ public abstract class AbstractCassandraBaseTimeseriesDao extends CassandraAbstra
 
     protected TsKvEntry convertResultToTsKvEntry(String key, Row row) {
         if (row != null) {
-            return getBasicTsKvEntry(key, row);
+            Optional<String> foundKeyOpt = getKey(row);
+            long ts = row.getLong(ModelConstants.TS_COLUMN);
+            return new BasicTsKvEntry(ts, toKvEntry(row, foundKeyOpt.orElse(key)));
         } else {
             return new BasicTsKvEntry(System.currentTimeMillis(), new StringDataEntry(key, null));
         }
-    }
-
-    protected Optional<TsKvEntry> convertResultToTsKvEntryOpt(String key, Row row) {
-        if (row != null) {
-            return Optional.of(getBasicTsKvEntry(key, row));
-        } else {
-            return Optional.empty();
-        }
-    }
-
-    private BasicTsKvEntry getBasicTsKvEntry(String key, Row row) {
-        Optional<String> foundKeyOpt = getKey(row);
-        long ts = row.getLong(ModelConstants.TS_COLUMN);
-        return new BasicTsKvEntry(ts, toKvEntry(row, foundKeyOpt.orElse(key)));
     }
 
     private Optional<String> getKey(Row row){

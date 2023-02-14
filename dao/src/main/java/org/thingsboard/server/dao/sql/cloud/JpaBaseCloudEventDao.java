@@ -24,7 +24,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Component;
 import org.thingsboard.server.common.data.cloud.CloudEvent;
 import org.thingsboard.server.common.data.cloud.CloudEventType;
-import org.thingsboard.server.common.data.edge.EdgeEventActionType;
 import org.thingsboard.server.common.data.id.CloudEventId;
 import org.thingsboard.server.common.data.page.PageData;
 import org.thingsboard.server.common.data.page.TimePageLink;
@@ -165,20 +164,21 @@ public class JpaBaseCloudEventDao extends JpaAbstractDao<CloudEventEntity, Cloud
     }
 
     @Override
-    public long countEventsByTenantIdAndEntityIdAndActionAndTypeAndStartTimeAndEndTime(UUID tenantId,
-                                                                                       UUID entityId,
-                                                                                       CloudEventType cloudEventType,
-                                                                                       EdgeEventActionType cloudEventAction,
-                                                                                       Long startTime,
-                                                                                       Long endTime) {
-        return cloudEventRepository
-                .countEventsByTenantIdAndEntityIdAndActionAndTypeAndStartTimeAndEndTime(
-                        tenantId,
-                        entityId,
-                        cloudEventType,
-                        cloudEventAction,
-                        startTime,
-                        endTime);
+    public PageData<CloudEvent> findCloudEventsByEntityIdAndCloudEventActionAndCloudEventType(UUID tenantId,
+                                                                                              UUID entityId,
+                                                                                              CloudEventType cloudEventType,
+                                                                                              String cloudEventAction,
+                                                                                              TimePageLink pageLink) {
+        return DaoUtil.toPageData(
+                cloudEventRepository
+                        .findEventsByTenantIdAndEntityIdAndCloudEventActionAndCloudEventType(
+                                tenantId,
+                                entityId,
+                                cloudEventType,
+                                cloudEventAction,
+                                pageLink.getStartTime(),
+                                pageLink.getEndTime(),
+                                DaoUtil.toPageable(pageLink)));
     }
 
     @Override

@@ -27,7 +27,6 @@ import org.thingsboard.server.dao.DaoUtil;
 import org.thingsboard.server.dao.dashboard.DashboardInfoDao;
 import org.thingsboard.server.dao.model.sql.DashboardInfoEntity;
 import org.thingsboard.server.dao.sql.JpaAbstractSearchTextDao;
-import org.thingsboard.server.dao.util.SqlDao;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +38,6 @@ import java.util.UUID;
  */
 @Slf4j
 @Component
-@SqlDao
 public class JpaDashboardInfoDao extends JpaAbstractSearchTextDao<DashboardInfoEntity, DashboardInfo> implements DashboardInfoDao {
 
     @Autowired

@@ -20,9 +20,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Streams;
 import lombok.Data;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringUtils;
+import org.thingsboard.server.common.data.StringUtils;
 import org.apache.sshd.common.util.security.SecurityUtils;
 import org.eclipse.jgit.api.CloneCommand;
 import org.eclipse.jgit.api.Git;
@@ -51,7 +49,6 @@ import org.eclipse.jgit.transport.CredentialsProvider;
 import org.eclipse.jgit.transport.FetchResult;
 import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.transport.SshTransport;
-import org.eclipse.jgit.transport.URIish;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.eclipse.jgit.transport.sshd.JGitKeyCache;
 import org.eclipse.jgit.transport.sshd.ServerKeyDatabase;
@@ -64,8 +61,8 @@ import org.thingsboard.server.common.data.page.PageData;
 import org.thingsboard.server.common.data.page.PageLink;
 import org.thingsboard.server.common.data.page.SortOrder;
 import org.thingsboard.server.common.data.sync.vc.BranchInfo;
-import org.thingsboard.server.common.data.sync.vc.RepositoryAuthMethod;
 import org.thingsboard.server.common.data.sync.vc.RepositorySettings;
+import org.thingsboard.server.common.data.sync.vc.RepositoryAuthMethod;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -73,7 +70,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.security.KeyPair;
 import java.security.PublicKey;
 import java.util.ArrayList;
@@ -82,67 +78,70 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class GitRepository {
 
     private final Git git;
-    private final AuthHandler authHandler;
     @Getter
     private final RepositorySettings settings;
+    private final CredentialsProvider credentialsProvider;
+    private final SshdSessionFactory sshSessionFactory;
 
     @Getter
     private final String directory;
 
     private ObjectId headId;
 
-    private GitRepository(Git git, RepositorySettings settings, AuthHandler authHandler, String directory) {
+    private GitRepository(Git git, RepositorySettings settings, CredentialsProvider credentialsProvider, SshdSessionFactory sshSessionFactory, String directory) {
         this.git = git;
         this.settings = settings;
-        this.authHandler = authHandler;
+        this.credentialsProvider = credentialsProvider;
+        this.sshSessionFactory = sshSessionFactory;
         this.directory = directory;
     }
 
     public static GitRepository clone(RepositorySettings settings, File directory) throws GitAPIException {
+        CredentialsProvider credentialsProvider = null;
+        SshdSessionFactory sshSessionFactory = null;
+        if (RepositoryAuthMethod.USERNAME_PASSWORD.equals(settings.getAuthMethod())) {
+            credentialsProvider = newCredentialsProvider(settings.getUsername(), settings.getPassword());
+        } else if (RepositoryAuthMethod.PRIVATE_KEY.equals(settings.getAuthMethod())) {
+            sshSessionFactory = newSshdSessionFactory(settings.getPrivateKey(), settings.getPrivateKeyPassword(), directory);
+        }
         CloneCommand cloneCommand = Git.cloneRepository()
                 .setURI(settings.getRepositoryUri())
                 .setDirectory(directory)
                 .setNoCheckout(true);
-        AuthHandler authHandler = AuthHandler.createFor(settings, directory);
-        authHandler.configureCommand(cloneCommand);
+        configureTransportCommand(cloneCommand, credentialsProvider, sshSessionFactory);
         Git git = cloneCommand.call();
-        return new GitRepository(git, settings, authHandler, directory.getAbsolutePath());
+        return new GitRepository(git, settings, credentialsProvider, sshSessionFactory, directory.getAbsolutePath());
     }
 
     public static GitRepository open(File directory, RepositorySettings settings) throws IOException {
         Git git = Git.open(directory);
-        AuthHandler authHandler = AuthHandler.createFor(settings, directory);
-        return new GitRepository(git, settings, authHandler, directory.getAbsolutePath());
+        CredentialsProvider credentialsProvider = null;
+        SshdSessionFactory sshSessionFactory = null;
+        if (RepositoryAuthMethod.USERNAME_PASSWORD.equals(settings.getAuthMethod())) {
+            credentialsProvider = newCredentialsProvider(settings.getUsername(), settings.getPassword());
+        } else if (RepositoryAuthMethod.PRIVATE_KEY.equals(settings.getAuthMethod())) {
+            sshSessionFactory = newSshdSessionFactory(settings.getPrivateKey(), settings.getPrivateKeyPassword(), directory);
+        }
+        return new GitRepository(git, settings, credentialsProvider, sshSessionFactory, directory.getAbsolutePath());
     }
 
-    public static void test(RepositorySettings settings, File directory) throws Exception {
-        AuthHandler authHandler = AuthHandler.createFor(settings, directory);
-        if (settings.isReadOnly()) {
-            LsRemoteCommand lsRemoteCommand = Git.lsRemoteRepository().setRemote(settings.getRepositoryUri());
-            authHandler.configureCommand(lsRemoteCommand);
-            lsRemoteCommand.call();
-        } else {
-            Files.createDirectories(directory.toPath());
-            try {
-                Git git = Git.init().setDirectory(directory).call();
-                GitRepository repository = new GitRepository(git, settings, authHandler, directory.getAbsolutePath());
-                repository.execute(repository.git.remoteAdd()
-                        .setName("origin")
-                        .setUri(new URIish(settings.getRepositoryUri())));
-                repository.push("", UUID.randomUUID().toString()); // trying to delete non-existing branch on remote repo
-            } finally {
-                try {
-                    FileUtils.forceDelete(directory);
-                } catch (Exception ignored) {}
-            }
+    public static void test(RepositorySettings settings, File directory) throws GitAPIException {
+        CredentialsProvider credentialsProvider = null;
+        SshdSessionFactory sshSessionFactory = null;
+        if (RepositoryAuthMethod.USERNAME_PASSWORD.equals(settings.getAuthMethod())) {
+            credentialsProvider = newCredentialsProvider(settings.getUsername(), settings.getPassword());
+        } else if (RepositoryAuthMethod.PRIVATE_KEY.equals(settings.getAuthMethod())) {
+            sshSessionFactory = newSshdSessionFactory(settings.getPrivateKey(), settings.getPrivateKeyPassword(), directory);
         }
+        LsRemoteCommand lsRemoteCommand = Git.lsRemoteRepository().setRemote(settings.getRepositoryUri());
+        configureTransportCommand(lsRemoteCommand, credentialsProvider, sshSessionFactory);
+        lsRemoteCommand.call();
     }
 
     public void fetch() throws GitAPIException {
@@ -197,7 +196,12 @@ public class GitRepository {
         LogCommand command = git.log()
                 .add(branchId);
 
-        command.setRevFilter(new CommitFilter(pageLink.getTextSearch(), settings.isShowMergeCommits()));
+        if (StringUtils.isNotEmpty(pageLink.getTextSearch())) {
+            command.setRevFilter(new NoMergesAndCommitMessageFilter(pageLink.getTextSearch()));
+        } else {
+            command.setRevFilter(RevFilter.NO_MERGES);
+        }
+
         if (StringUtils.isNotEmpty(path)) {
             command.addPath(path);
         }
@@ -359,12 +363,12 @@ public class GitRepository {
 
     private <C extends GitCommand<T>, T> T execute(C command) throws GitAPIException {
         if (command instanceof TransportCommand) {
-            authHandler.configureCommand((TransportCommand) command);
+            configureTransportCommand((TransportCommand) command, credentialsProvider, sshSessionFactory);
         }
         return command.call();
     }
 
-    private static final Function<PageLink, Comparator<RevCommit>> revCommitComparatorFunction = pageLink -> {
+    private static Function<PageLink, Comparator<RevCommit>> revCommitComparatorFunction = pageLink -> {
         SortOrder sortOrder = pageLink.getSortOrder();
         if (sortOrder != null
                 && sortOrder.getProperty().equals("timestamp")
@@ -401,92 +405,72 @@ public class GitRepository {
         return new PageData<>(data, totalPages, totalElements, hasNext);
     }
 
-    @RequiredArgsConstructor
-    private static class AuthHandler {
-        private final CredentialsProvider credentialsProvider;
-        private final SshdSessionFactory sshSessionFactory;
-
-        protected static AuthHandler createFor(RepositorySettings settings, File directory) {
-            CredentialsProvider credentialsProvider = null;
-            SshdSessionFactory sshSessionFactory = null;
-            if (RepositoryAuthMethod.USERNAME_PASSWORD.equals(settings.getAuthMethod())) {
-                credentialsProvider = newCredentialsProvider(settings.getUsername(), settings.getPassword());
-            } else if (RepositoryAuthMethod.PRIVATE_KEY.equals(settings.getAuthMethod())) {
-                sshSessionFactory = newSshdSessionFactory(settings.getPrivateKey(), settings.getPrivateKeyPassword(), directory);
-            }
-            return new AuthHandler(credentialsProvider, sshSessionFactory);
+    private static void configureTransportCommand(TransportCommand transportCommand, CredentialsProvider credentialsProvider, SshdSessionFactory sshSessionFactory) {
+        if (credentialsProvider != null) {
+            transportCommand.setCredentialsProvider(credentialsProvider);
         }
-
-        protected void configureCommand(TransportCommand command) {
-            if (credentialsProvider != null) {
-                command.setCredentialsProvider(credentialsProvider);
-            }
-            if (sshSessionFactory != null) {
-                command.setTransportConfigCallback(transport -> {
-                    if (transport instanceof SshTransport) {
-                        SshTransport sshTransport = (SshTransport) transport;
-                        sshTransport.setSshSessionFactory(sshSessionFactory);
-                    }
-                });
-            }
-        }
-
-        private static CredentialsProvider newCredentialsProvider(String username, String password) {
-            return new UsernamePasswordCredentialsProvider(username, password == null ? "" : password);
-        }
-
-        private static SshdSessionFactory newSshdSessionFactory(String privateKey, String password, File directory) {
-            SshdSessionFactory sshSessionFactory = null;
-            if (StringUtils.isNotBlank(privateKey)) {
-                Iterable<KeyPair> keyPairs = loadKeyPairs(privateKey, password);
-                sshSessionFactory = new SshdSessionFactoryBuilder()
-                        .setPreferredAuthentications("publickey")
-                        .setDefaultKeysProvider(file -> keyPairs)
-                        .setHomeDirectory(directory)
-                        .setSshDirectory(directory)
-                        .setServerKeyDatabase((file, file2) -> new ServerKeyDatabase() {
-                            @Override
-                            public List<PublicKey> lookup(String connectAddress, InetSocketAddress remoteAddress, Configuration config) {
-                                return Collections.emptyList();
-                            }
-
-                            @Override
-                            public boolean accept(String connectAddress, InetSocketAddress remoteAddress, PublicKey serverKey, Configuration config, CredentialsProvider provider) {
-                                return true;
-                            }
-                        })
-                        .build(new JGitKeyCache());
-            }
-            return sshSessionFactory;
-        }
-
-        private static Iterable<KeyPair> loadKeyPairs(String privateKeyContent, String password) {
-            Iterable<KeyPair> keyPairs = null;
-            try {
-                keyPairs = SecurityUtils.loadKeyPairIdentities(null,
-                        null, new ByteArrayInputStream(privateKeyContent.getBytes()), (session, resourceKey, retryIndex) -> password);
-            } catch (Exception e) {}
-            if (keyPairs == null) {
-                throw new IllegalArgumentException("Failed to load ssh private key");
-            }
-            return keyPairs;
+        if (sshSessionFactory != null) {
+            transportCommand.setTransportConfigCallback(transport -> {
+                if (transport instanceof SshTransport) {
+                    SshTransport sshTransport = (SshTransport) transport;
+                    sshTransport.setSshSessionFactory(sshSessionFactory);
+                }
+            });
         }
     }
 
-    private static class CommitFilter extends RevFilter {
+    private static CredentialsProvider newCredentialsProvider(String username, String password) {
+        return new UsernamePasswordCredentialsProvider(username, password == null ? "" : password);
+    }
+
+    private static SshdSessionFactory newSshdSessionFactory(String privateKey, String password, File directory) {
+        SshdSessionFactory sshSessionFactory = null;
+        if (StringUtils.isNotBlank(privateKey)) {
+            Iterable<KeyPair> keyPairs = loadKeyPairs(privateKey, password);
+            sshSessionFactory = new SshdSessionFactoryBuilder()
+                    .setPreferredAuthentications("publickey")
+                    .setDefaultKeysProvider(file -> keyPairs)
+                    .setHomeDirectory(directory)
+                    .setSshDirectory(directory)
+                    .setServerKeyDatabase((file, file2) -> new ServerKeyDatabase() {
+                        @Override
+                        public List<PublicKey> lookup(String connectAddress, InetSocketAddress remoteAddress, Configuration config) {
+                            return Collections.emptyList();
+                        }
+
+                        @Override
+                        public boolean accept(String connectAddress, InetSocketAddress remoteAddress, PublicKey serverKey, Configuration config, CredentialsProvider provider) {
+                            return true;
+                        }
+                    })
+                    .build(new JGitKeyCache());
+        }
+        return sshSessionFactory;
+    }
+
+    private static Iterable<KeyPair> loadKeyPairs(String privateKeyContent, String password) {
+        Iterable<KeyPair> keyPairs = null;
+        try {
+            keyPairs = SecurityUtils.loadKeyPairIdentities(null,
+                    null, new ByteArrayInputStream(privateKeyContent.getBytes()), (session, resourceKey, retryIndex) -> password);
+        } catch (Exception e) {}
+        if (keyPairs == null) {
+            throw new IllegalArgumentException("Failed to load ssh private key");
+        }
+        return keyPairs;
+    }
+
+    private static class NoMergesAndCommitMessageFilter extends RevFilter {
 
         private final String textSearch;
-        private final boolean showMergeCommits;
 
-        CommitFilter(String textSearch, boolean showMergeCommits) {
+        NoMergesAndCommitMessageFilter(String textSearch) {
             this.textSearch = textSearch.toLowerCase();
-            this.showMergeCommits = showMergeCommits;
         }
 
         @Override
         public boolean include(RevWalk walker, RevCommit c) {
-            return (showMergeCommits || c.getParentCount() < 2) && (StringUtils.isEmpty(textSearch)
-                    || c.getFullMessage().toLowerCase().contains(textSearch));
+            return c.getParentCount() < 2 && c.getFullMessage().toLowerCase().contains(this.textSearch);
         }
 
         @Override
@@ -499,6 +483,10 @@ public class GitRepository {
             return false;
         }
 
+        @Override
+        public String toString() {
+            return "NO_MERGES_AND_COMMIT_MESSAGE";
+        }
     }
 
     @Data

@@ -59,49 +59,29 @@
       </div>
     </mat-toolbar>
     <div fxFlex class="table-container">
-      <table mat-table
-             [dataSource]="dataSource"
-             matSort [matSortActive]="pageLink.sortOrder.property" [matSortDirection]="pageLink.sortDirection()" matSortDisableClear
-             cdkDropList cdkDropListOrientation="vertical"
-             [cdkDropListData]="dataSource"
-             (cdkDropListDropped)="dropAction($event)"
-             [cdkDropListDisabled]="dragDisabled"
-             class="tb-drop-list">
-        <ng-container matColumnDef="actionSourceId">
-          <mat-header-cell *matHeaderCellDef style="width: 36px"></mat-header-cell>
-          <mat-cell *matCellDef="let action">
-            <div cdkDragHandle
-                 class="tb-drag-handle"
-                 style="min-width: 36px"
-                 (mousedown)="dragDisabled = false"
-                 (mouseup)="dragDisabled = true"
-                 matTooltip="{{ 'action.drag' | translate }}"
-                 matTooltipPosition="above">
-              <mat-icon>drag_handle</mat-icon>
-            </div>
-          </mat-cell>
-        </ng-container>
+      <table mat-table [dataSource]="dataSource"
+                 matSort [matSortActive]="pageLink.sortOrder.property" [matSortDirection]="pageLink.sortDirection()" matSortDisableClear>
         <ng-container matColumnDef="actionSourceName">
           <mat-header-cell *matHeaderCellDef mat-sort-header style="width: 20%"> {{ 'widget-config.action-source' | translate }} </mat-header-cell>
-          <mat-cell *matCellDef="let action" style="width: 20%">
+          <mat-cell *matCellDef="let action">
             {{ action.actionSourceName }}
           </mat-cell>
         </ng-container>
         <ng-container matColumnDef="name">
-          <mat-header-cell *matHeaderCellDef style="width: 30%"> {{ 'widget-config.action-name' | translate }} </mat-header-cell>
-          <mat-cell *matCellDef="let action" style="width: 30%">
+          <mat-header-cell *matHeaderCellDef mat-sort-header style="width: 30%"> {{ 'widget-config.action-name' | translate }} </mat-header-cell>
+          <mat-cell *matCellDef="let action">
             {{ action.name }}
           </mat-cell>
         </ng-container>
         <ng-container matColumnDef="icon">
-          <mat-header-cell *matHeaderCellDef style="width: 40px"> {{ 'widget-config.action-icon' | translate }} </mat-header-cell>
-          <mat-cell *matCellDef="let action" style="width: 40px">
+          <mat-header-cell *matHeaderCellDef mat-sort-header style="width: 40px"> {{ 'widget-config.action-icon' | translate }} </mat-header-cell>
+          <mat-cell *matCellDef="let action">
             <mat-icon>{{ action.icon }}</mat-icon>
           </mat-cell>
         </ng-container>
         <ng-container matColumnDef="typeName">
-          <mat-header-cell *matHeaderCellDef style="width: 50%"> {{ 'widget-config.action-type' | translate }} </mat-header-cell>
-          <mat-cell *matCellDef="let action" style="width: 50%">
+          <mat-header-cell *matHeaderCellDef mat-sort-header style="width: 50%"> {{ 'widget-config.action-type' | translate }} </mat-header-cell>
+          <mat-cell *matCellDef="let action">
             {{ action.typeName }}
           </mat-cell>
         </ng-container>
@@ -127,10 +107,9 @@
             </div>
           </mat-cell>
         </ng-container>
-        <mat-header-row class="mat-row-select" *matHeaderRowDef="displayedColumns; sticky: true"></mat-header-row>
-        <mat-row class="mat-row-select tb-draggable"
-                 *matRowDef="let action; columns: displayedColumns;"
-                 cdkDrag [cdkDragData]="action"></mat-row>
+        <mat-header-row [ngClass]="{'mat-row-select': true}" *matHeaderRowDef="displayedColumns; sticky: true"></mat-header-row>
+        <mat-row [ngClass]="{'mat-row-select': true}"
+                 *matRowDef="let action; columns: displayedColumns;"></mat-row>
       </table>
       <span [fxShow]="dataSource.isEmpty() | async"
             fxLayoutAlign="center center"

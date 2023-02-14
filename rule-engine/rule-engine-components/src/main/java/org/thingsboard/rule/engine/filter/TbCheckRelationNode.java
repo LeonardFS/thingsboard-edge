@@ -55,15 +55,10 @@ import static org.thingsboard.common.util.DonAsynchron.withCallback;
 public class TbCheckRelationNode implements TbNode {
 
     private TbCheckRelationNodeConfiguration config;
-    private EntityId singleEntityId;
 
     @Override
     public void init(TbContext ctx, TbNodeConfiguration configuration) throws TbNodeException {
         this.config = TbNodeUtils.convert(configuration, TbCheckRelationNodeConfiguration.class);
-        if (config.isCheckForSingleEntity()) {
-            this.singleEntityId = EntityIdFactory.getByTypeAndId(config.getEntityType(), config.getEntityId());
-            ctx.checkTenantEntity(singleEntityId);
-        }
     }
 
     @Override
@@ -81,10 +76,10 @@ public class TbCheckRelationNode implements TbNode {
         EntityId from;
         EntityId to;
         if (EntitySearchDirection.FROM.name().equals(config.getDirection())) {
-            from = singleEntityId;
+            from = EntityIdFactory.getByTypeAndId(config.getEntityType(), config.getEntityId());
             to = msg.getOriginator();
         } else {
-            to = singleEntityId;
+            to = EntityIdFactory.getByTypeAndId(config.getEntityType(), config.getEntityId());
             from = msg.getOriginator();
         }
         return ctx.getRelationService().checkRelationAsync(ctx.getTenantId(), from, to, config.getRelationType(), RelationTypeGroup.COMMON);
@@ -108,4 +103,8 @@ public class TbCheckRelationNode implements TbNode {
         }
     }
 
+    @Override
+    public void destroy() {
+
+    }
 }

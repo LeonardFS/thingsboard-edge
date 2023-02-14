@@ -15,7 +15,6 @@
  */
 package org.thingsboard.server.dao.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.owasp.validator.html.AntiSamy;
 import org.owasp.validator.html.Policy;
@@ -49,18 +48,12 @@ public class NoXssValidator implements ConstraintValidator<NoXss, Object> {
 
     @Override
     public boolean isValid(Object value, ConstraintValidatorContext constraintValidatorContext) {
-        String stringValue;
-        if (value instanceof CharSequence || value instanceof JsonNode) {
-            stringValue = value.toString();
-        } else {
-            return true;
-        }
-        if (stringValue.isEmpty()) {
+        if (!(value instanceof String) || ((String) value).isEmpty()) {
             return true;
         }
 
         try {
-            return xssChecker.scan(stringValue, xssPolicy).getNumberOfErrors() == 0;
+            return xssChecker.scan((String) value, xssPolicy).getNumberOfErrors() == 0;
         } catch (ScanException | PolicyException e) {
             return false;
         }

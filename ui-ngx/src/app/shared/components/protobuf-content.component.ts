@@ -129,9 +129,6 @@ export class ProtobufContentComponent implements OnInit, ControlValueAccessor, O
     if (this.editorResize$) {
       this.editorResize$.disconnect();
     }
-    if (this.protobufEditor) {
-      this.protobufEditor.destroy();
-    }
   }
 
   registerOnChange(fn: any): void {

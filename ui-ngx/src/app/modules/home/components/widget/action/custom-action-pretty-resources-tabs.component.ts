@@ -93,7 +93,6 @@ export class CustomActionPrettyResourcesTabsComponent extends PageComponent impl
   }
 
   ngOnDestroy(): void {
-    this.aceEditors.forEach(editor => editor.destroy());
     this.aceResize$.disconnect();
   }
 

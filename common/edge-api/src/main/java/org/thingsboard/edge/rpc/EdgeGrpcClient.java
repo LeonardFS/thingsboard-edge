@@ -142,7 +142,7 @@ public class EdgeGrpcClient implements EdgeRpcClient {
 
             @Override
             public void onError(Throwable t) {
-                log.warn("[{}] Stream was terminated due to error:", edgeKey, t);
+                log.debug("[{}] The rpc session received an error!", edgeKey, t);
                 try {
                     EdgeGrpcClient.this.disconnect(true);
                 } catch (InterruptedException e) {
@@ -153,7 +153,7 @@ public class EdgeGrpcClient implements EdgeRpcClient {
 
             @Override
             public void onCompleted() {
-                log.info("[{}] Stream was closed and completed successfully!", edgeKey);
+                log.debug("[{}] The rpc session was closed!", edgeKey);
             }
         };
     }
@@ -207,17 +207,9 @@ public class EdgeGrpcClient implements EdgeRpcClient {
 
     @Override
     public void sendSyncRequestMsg(boolean syncRequired) {
-        sendSyncRequestMsg(syncRequired, true);
-    }
-
-    @Override
-    public void sendSyncRequestMsg(boolean syncRequired, boolean fullSync) {
         uplinkMsgLock.lock();
         try {
-            SyncRequestMsg syncRequestMsg = SyncRequestMsg.newBuilder()
-                    .setSyncRequired(syncRequired)
-                    .setFullSync(fullSync)
-                    .build();
+            SyncRequestMsg syncRequestMsg = SyncRequestMsg.newBuilder().setSyncRequired(syncRequired).build();
             this.inputStream.onNext(RequestMsg.newBuilder()
                     .setMsgType(RequestMsgType.SYNC_REQUEST_RPC_MESSAGE)
                     .setSyncRequestMsg(syncRequestMsg)

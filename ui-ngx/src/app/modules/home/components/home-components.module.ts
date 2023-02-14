@@ -172,9 +172,6 @@ import { RateLimitsListComponent } from '@home/components/profile/tenant/rate-li
 import { RateLimitsComponent } from '@home/components/profile/tenant/rate-limits/rate-limits.component';
 import { RateLimitsTextComponent } from '@home/components/profile/tenant/rate-limits/rate-limits-text.component';
 import { RateLimitsDetailsDialogComponent } from '@home/components/profile/tenant/rate-limits/rate-limits-details-dialog.component';
-import { AssetProfileComponent } from '@home/components/profile/asset-profile.component';
-import { AssetProfileDialogComponent } from '@home/components/profile/asset-profile-dialog.component';
-import { AssetProfileAutocompleteComponent } from '@home/components/profile/asset-profile-autocomplete.component';
 
 @NgModule({
   declarations:
@@ -271,9 +268,6 @@ import { AssetProfileAutocompleteComponent } from '@home/components/profile/asse
       DeviceProfileComponent,
       DeviceProfileDialogComponent,
       AddDeviceProfileDialogComponent,
-      AssetProfileComponent,
-      AssetProfileDialogComponent,
-      AssetProfileAutocompleteComponent,
       RuleChainAutocompleteComponent,
       AlarmScheduleInfoComponent,
       DeviceProfileProvisionConfigurationComponent,
@@ -412,9 +406,6 @@ import { AssetProfileAutocompleteComponent } from '@home/components/profile/asse
     AddDeviceProfileDialogComponent,
     RuleChainAutocompleteComponent,
     DeviceWizardDialogComponent,
-    AssetProfileComponent,
-    AssetProfileDialogComponent,
-    AssetProfileAutocompleteComponent,
     AlarmScheduleInfoComponent,
     AlarmScheduleComponent,
     AlarmDynamicValue,

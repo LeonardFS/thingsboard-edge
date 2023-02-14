@@ -49,4 +49,8 @@ public class TbSynchronizationBeginNode implements TbNode {
         ctx.tellSuccess(msg);
     }
 
+    @Override
+    public void destroy() {
+
+    }
 }

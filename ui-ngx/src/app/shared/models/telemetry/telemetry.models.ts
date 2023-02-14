@@ -173,38 +173,15 @@ export interface TimeSeriesCmd {
   fetchLatestPreviousPoint?: boolean;
 }
 
-export interface AggKey {
-  id: number;
-  key: string;
-  agg: AggregationType;
-  previousStartTs?: number;
-  previousEndTs?: number;
-  previousValueOnly?: boolean;
-}
-
-export interface AggEntityHistoryCmd {
-  keys: Array<AggKey>;
-  startTs: number;
-  endTs: number;
-}
-
-export interface AggTimeSeriesCmd {
-  keys: Array<AggKey>;
-  startTs: number;
-  timeWindow: number;
-}
-
 export class EntityDataCmd implements WebsocketCmd {
   cmdId: number;
   query?: EntityDataQuery;
   historyCmd?: EntityHistoryCmd;
   latestCmd?: LatestValueCmd;
   tsCmd?: TimeSeriesCmd;
-  aggHistoryCmd?: AggEntityHistoryCmd;
-  aggTsCmd?: AggTimeSeriesCmd;
 
   public isEmpty(): boolean {
-    return !this.query && !this.historyCmd && !this.latestCmd && !this.tsCmd && !this.aggTsCmd && !this.aggHistoryCmd;
+    return !this.query && !this.historyCmd && !this.latestCmd && !this.tsCmd;
   }
 }
 
@@ -235,6 +212,15 @@ export class AlarmDataUnsubscribeCmd implements WebsocketCmd {
 }
 
 export class TelemetryPluginCmdsWrapper {
+  attrSubCmds: Array<AttributesSubscriptionCmd>;
+  tsSubCmds: Array<TimeseriesSubscriptionCmd>;
+  historyCmds: Array<GetHistoryCmd>;
+  entityDataCmds: Array<EntityDataCmd>;
+  entityDataUnsubscribeCmds: Array<EntityDataUnsubscribeCmd>;
+  alarmDataCmds: Array<AlarmDataCmd>;
+  alarmDataUnsubscribeCmds: Array<AlarmDataUnsubscribeCmd>;
+  entityCountCmds: Array<EntityCountCmd>;
+  entityCountUnsubscribeCmds: Array<EntityCountUnsubscribeCmd>;
 
   constructor() {
     this.attrSubCmds = [];
@@ -246,24 +232,6 @@ export class TelemetryPluginCmdsWrapper {
     this.alarmDataUnsubscribeCmds = [];
     this.entityCountCmds = [];
     this.entityCountUnsubscribeCmds = [];
-  }
-  attrSubCmds: Array<AttributesSubscriptionCmd>;
-  tsSubCmds: Array<TimeseriesSubscriptionCmd>;
-  historyCmds: Array<GetHistoryCmd>;
-  entityDataCmds: Array<EntityDataCmd>;
-  entityDataUnsubscribeCmds: Array<EntityDataUnsubscribeCmd>;
-  alarmDataCmds: Array<AlarmDataCmd>;
-  alarmDataUnsubscribeCmds: Array<AlarmDataUnsubscribeCmd>;
-  entityCountCmds: Array<EntityCountCmd>;
-  entityCountUnsubscribeCmds: Array<EntityCountUnsubscribeCmd>;
-
-  private static popCmds<T>(cmds: Array<T>, leftCount: number): Array<T> {
-    const toPublish = Math.min(cmds.length, leftCount);
-    if (toPublish > 0) {
-      return cmds.splice(0, toPublish);
-    } else {
-      return [];
-    }
   }
 
   public hasCommands(): boolean {
@@ -293,33 +261,38 @@ export class TelemetryPluginCmdsWrapper {
   public preparePublishCommands(maxCommands: number): TelemetryPluginCmdsWrapper {
     const preparedWrapper = new TelemetryPluginCmdsWrapper();
     let leftCount = maxCommands;
-    preparedWrapper.tsSubCmds = TelemetryPluginCmdsWrapper.popCmds(this.tsSubCmds, leftCount);
+    preparedWrapper.tsSubCmds = this.popCmds(this.tsSubCmds, leftCount);
     leftCount -= preparedWrapper.tsSubCmds.length;
-    preparedWrapper.historyCmds = TelemetryPluginCmdsWrapper.popCmds(this.historyCmds, leftCount);
+    preparedWrapper.historyCmds = this.popCmds(this.historyCmds, leftCount);
     leftCount -= preparedWrapper.historyCmds.length;
-    preparedWrapper.attrSubCmds = TelemetryPluginCmdsWrapper.popCmds(this.attrSubCmds, leftCount);
+    preparedWrapper.attrSubCmds = this.popCmds(this.attrSubCmds, leftCount);
     leftCount -= preparedWrapper.attrSubCmds.length;
-    preparedWrapper.entityDataCmds = TelemetryPluginCmdsWrapper.popCmds(this.entityDataCmds, leftCount);
+    preparedWrapper.entityDataCmds = this.popCmds(this.entityDataCmds, leftCount);
     leftCount -= preparedWrapper.entityDataCmds.length;
-    preparedWrapper.entityDataUnsubscribeCmds = TelemetryPluginCmdsWrapper.popCmds(this.entityDataUnsubscribeCmds, leftCount);
+    preparedWrapper.entityDataUnsubscribeCmds = this.popCmds(this.entityDataUnsubscribeCmds, leftCount);
     leftCount -= preparedWrapper.entityDataUnsubscribeCmds.length;
-    preparedWrapper.alarmDataCmds = TelemetryPluginCmdsWrapper.popCmds(this.alarmDataCmds, leftCount);
+    preparedWrapper.alarmDataCmds = this.popCmds(this.alarmDataCmds, leftCount);
     leftCount -= preparedWrapper.alarmDataCmds.length;
-    preparedWrapper.alarmDataUnsubscribeCmds = TelemetryPluginCmdsWrapper.popCmds(this.alarmDataUnsubscribeCmds, leftCount);
+    preparedWrapper.alarmDataUnsubscribeCmds = this.popCmds(this.alarmDataUnsubscribeCmds, leftCount);
     leftCount -= preparedWrapper.alarmDataUnsubscribeCmds.length;
-    preparedWrapper.entityCountCmds = TelemetryPluginCmdsWrapper.popCmds(this.entityCountCmds, leftCount);
+    preparedWrapper.entityCountCmds = this.popCmds(this.entityCountCmds, leftCount);
     leftCount -= preparedWrapper.entityCountCmds.length;
-    preparedWrapper.entityCountUnsubscribeCmds = TelemetryPluginCmdsWrapper.popCmds(this.entityCountUnsubscribeCmds, leftCount);
+    preparedWrapper.entityCountUnsubscribeCmds = this.popCmds(this.entityCountUnsubscribeCmds, leftCount);
     return preparedWrapper;
+  }
+
+  private popCmds<T>(cmds: Array<T>, leftCount: number): Array<T> {
+    const toPublish = Math.min(cmds.length, leftCount);
+    if (toPublish > 0) {
+      return cmds.splice(0, toPublish);
+    } else {
+      return [];
+    }
   }
 }
 
 export interface SubscriptionData {
-  [key: string]: [number, any, number?][];
-}
-
-export interface IndexedSubscriptionData {
-  [id: number]: [number, any, number?][];
+  [key: string]: [number, any][];
 }
 
 export interface SubscriptionDataHolder {
@@ -461,7 +434,16 @@ export class EntityDataUpdate extends DataUpdate<EntityData> {
     super(msg);
   }
 
-  private static processEntityData(data: Array<EntityData>, tsOffset: number) {
+  public prepareData(tsOffset: number) {
+    if (this.data) {
+      this.processEntityData(this.data.data, tsOffset);
+    }
+    if (this.update) {
+      this.processEntityData(this.update, tsOffset);
+    }
+  }
+
+  private processEntityData(data: Array<EntityData>, tsOffset: number) {
     for (const entityData of data) {
       if (entityData.timeseries) {
         for (const key of Object.keys(entityData.timeseries)) {
@@ -489,28 +471,28 @@ export class EntityDataUpdate extends DataUpdate<EntityData> {
       }
     }
   }
-
-  public prepareData(tsOffset: number) {
-    if (this.data) {
-      EntityDataUpdate.processEntityData(this.data.data, tsOffset);
-    }
-    if (this.update) {
-      EntityDataUpdate.processEntityData(this.update, tsOffset);
-    }
-  }
 }
 
 export class AlarmDataUpdate extends DataUpdate<AlarmData> {
+  allowedEntities: number;
+  totalEntities: number;
 
   constructor(msg: AlarmDataUpdateMsg) {
     super(msg);
     this.allowedEntities = msg.allowedEntities;
     this.totalEntities = msg.totalEntities;
   }
-  allowedEntities: number;
-  totalEntities: number;
 
-  private static processAlarmData(data: Array<AlarmData>, tsOffset: number) {
+  public prepareData(tsOffset: number) {
+    if (this.data) {
+      this.processAlarmData(this.data.data, tsOffset);
+    }
+    if (this.update) {
+      this.processAlarmData(this.update, tsOffset);
+    }
+  }
+
+  private processAlarmData(data: Array<AlarmData>, tsOffset: number) {
     for (const alarmData of data) {
       alarmData.createdTime += tsOffset;
       if (alarmData.ackTs) {
@@ -540,15 +522,6 @@ export class AlarmDataUpdate extends DataUpdate<AlarmData> {
           }
         }
       }
-    }
-  }
-
-  public prepareData(tsOffset: number) {
-    if (this.data) {
-      AlarmDataUpdate.processAlarmData(this.data.data, tsOffset);
-    }
-    if (this.update) {
-      AlarmDataUpdate.processAlarmData(this.update, tsOffset);
     }
   }
 }

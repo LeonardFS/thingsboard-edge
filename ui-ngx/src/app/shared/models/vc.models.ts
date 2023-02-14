@@ -28,7 +28,6 @@ export const exportableEntityTypes: Array<EntityType> = [
   EntityType.DASHBOARD,
   EntityType.CUSTOMER,
   EntityType.DEVICE_PROFILE,
-  EntityType.ASSET_PROFILE,
   EntityType.RULE_CHAIN,
   EntityType.WIDGETS_BUNDLE
 ];

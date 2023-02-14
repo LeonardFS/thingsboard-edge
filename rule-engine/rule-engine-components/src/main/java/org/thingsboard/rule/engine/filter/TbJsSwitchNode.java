@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
 import lombok.extern.slf4j.Slf4j;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.thingsboard.common.util.ListeningExecutor;
 import org.thingsboard.rule.engine.api.RuleNode;
 import org.thingsboard.rule.engine.api.ScriptEngine;
 import org.thingsboard.rule.engine.api.TbContext;
@@ -28,7 +29,6 @@ import org.thingsboard.rule.engine.api.TbNodeConfiguration;
 import org.thingsboard.rule.engine.api.TbNodeException;
 import org.thingsboard.rule.engine.api.util.TbNodeUtils;
 import org.thingsboard.server.common.data.plugin.ComponentType;
-import org.thingsboard.server.common.data.script.ScriptLanguage;
 import org.thingsboard.server.common.msg.TbMsg;
 
 import java.util.Set;
@@ -50,19 +50,18 @@ import java.util.Set;
 public class TbJsSwitchNode implements TbNode {
 
     private TbJsSwitchNodeConfiguration config;
-    private ScriptEngine scriptEngine;
+    private ScriptEngine jsEngine;
 
     @Override
     public void init(TbContext ctx, TbNodeConfiguration configuration) throws TbNodeException {
         this.config = TbNodeUtils.convert(configuration, TbJsSwitchNodeConfiguration.class);
-        this.scriptEngine = ctx.createScriptEngine(config.getScriptLang(),
-                ScriptLanguage.TBEL.equals(config.getScriptLang()) ? config.getTbelScript() : config.getJsScript());
+        this.jsEngine = ctx.createJsScriptEngine(config.getJsScript());
     }
 
     @Override
     public void onMsg(TbContext ctx, TbMsg msg) {
         ctx.logJsEvalRequest();
-        Futures.addCallback(scriptEngine.executeSwitchAsync(msg), new FutureCallback<>() {
+        Futures.addCallback(jsEngine.executeSwitchAsync(msg), new FutureCallback<Set<String>>() {
             @Override
             public void onSuccess(@Nullable Set<String> result) {
                 ctx.logJsEvalResponse();
@@ -83,8 +82,8 @@ public class TbJsSwitchNode implements TbNode {
 
     @Override
     public void destroy() {
-        if (scriptEngine != null) {
-            scriptEngine.destroy();
+        if (jsEngine != null) {
+            jsEngine.destroy();
         }
     }
 }

@@ -33,7 +33,6 @@ import org.thingsboard.server.dao.entityview.EntityViewDao;
 import org.thingsboard.server.dao.model.sql.EntityViewEntity;
 import org.thingsboard.server.dao.model.sql.EntityViewInfoEntity;
 import org.thingsboard.server.dao.sql.JpaAbstractSearchTextDao;
-import org.thingsboard.server.dao.util.SqlDao;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -47,7 +46,6 @@ import java.util.UUID;
  */
 @Component
 @Slf4j
-@SqlDao
 public class JpaEntityViewDao extends JpaAbstractSearchTextDao<EntityViewEntity, EntityView>
         implements EntityViewDao {
 

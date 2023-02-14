@@ -15,7 +15,11 @@
 ///
 
 import L, { LeafletMouseEvent } from 'leaflet';
-import { MarkerIconInfo, MarkerIconReadyFunction, MarkerImageInfo, WidgetMarkersSettings, } from './map-models';
+import {
+  MarkerIconInfo,
+  MarkerIconReadyFunction,
+  MarkerImageInfo, WidgetMarkersSettings,
+} from './map-models';
 import { bindPopupActions, createTooltip } from './maps-utils';
 import { aspectCache, parseWithTranslation } from './common-maps-utils';
 import tinycolor from 'tinycolor2';
@@ -42,8 +46,7 @@ export class Marker {
               snappable = false) {
         this.leafletMarker = L.marker(location, {
           pmIgnore: !settings.draggableMarker,
-          snapIgnore: !snappable,
-          tbMarkerData: this.data
+          snapIgnore: !snappable
         });
 
         this.markerOffset = [
@@ -90,9 +93,8 @@ export class Marker {
     }
 
     setDataSources(data: FormattedData, dataSources: FormattedData[]) {
-      this.data = data;
-      this.dataSources = dataSources;
-      this.leafletMarker.options.tbMarkerData = data;
+        this.data = data;
+        this.dataSources = dataSources;
     }
 
     updateMarkerTooltip(data: FormattedData) {

@@ -43,16 +43,14 @@ import java.util.concurrent.ExecutionException;
 @Slf4j
 public class WidgetBundleCloudProcessor extends BaseCloudProcessor {
 
-    public ListenableFuture<Void> processWidgetsBundleMsgFromCloud(TenantId tenantId,
-                                                                   WidgetsBundleUpdateMsg widgetsBundleUpdateMsg,
-                                                                   Long queueStartTs) throws ExecutionException, InterruptedException {
+    public ListenableFuture<Void> processWidgetsBundleMsgFromCloud(TenantId tenantId, WidgetsBundleUpdateMsg widgetsBundleUpdateMsg) throws ExecutionException, InterruptedException {
         WidgetsBundleId widgetsBundleId = new WidgetsBundleId(new UUID(widgetsBundleUpdateMsg.getIdMSB(), widgetsBundleUpdateMsg.getIdLSB()));
         switch (widgetsBundleUpdateMsg.getMsgType()) {
             case ENTITY_CREATED_RPC_MESSAGE:
             case ENTITY_UPDATED_RPC_MESSAGE:
                 widgetCreationLock.lock();
                 try {
-                    deleteSystemWidgetBundleIfAlreadyExists(tenantId, widgetsBundleUpdateMsg.getAlias(), widgetsBundleId, queueStartTs);
+                    deleteSystemWidgetBundleIfAlreadyExists(tenantId, widgetsBundleUpdateMsg.getAlias(), widgetsBundleId);
                     WidgetsBundle widgetsBundle = widgetsBundleService.findWidgetsBundleById(tenantId, widgetsBundleId);
                     boolean created = false;
                     if (widgetsBundle == null) {
@@ -74,7 +72,7 @@ public class WidgetBundleCloudProcessor extends BaseCloudProcessor {
                     widgetsBundleService.saveWidgetsBundle(widgetsBundle, false);
 
                     if (created) {
-                        return requestWidgetsBundleTypes(tenantId, widgetsBundleId, queueStartTs);
+                        return requestWidgetsBundleTypes(tenantId, widgetsBundleId);
                     } else {
                         return Futures.immediateFuture(null);
                     }
@@ -93,21 +91,20 @@ public class WidgetBundleCloudProcessor extends BaseCloudProcessor {
         return Futures.immediateFuture(null);
     }
 
-    private ListenableFuture<Void> requestWidgetsBundleTypes(TenantId tenantId, WidgetsBundleId widgetsBundleId, Long queueStartTs) {
-        return cloudEventService.saveCloudEventAsync(tenantId,
+    private ListenableFuture<Void> requestWidgetsBundleTypes(TenantId tenantId, WidgetsBundleId widgetsBundleId) {
+        return saveCloudEvent(tenantId,
                 CloudEventType.WIDGETS_BUNDLE,
                 EdgeEventActionType.WIDGET_BUNDLE_TYPES_REQUEST,
                 widgetsBundleId,
-                null,
-                queueStartTs);
+                null);
     }
 
-    private void deleteSystemWidgetBundleIfAlreadyExists(TenantId tenantId, String bundleAlias, WidgetsBundleId widgetsBundleId, Long queueStartTs) throws ExecutionException, InterruptedException {
+    private void deleteSystemWidgetBundleIfAlreadyExists(TenantId tenantId, String bundleAlias, WidgetsBundleId widgetsBundleId) throws ExecutionException, InterruptedException {
         try {
             WidgetsBundle widgetsBundle = widgetsBundleService.findWidgetsBundleByTenantIdAndAlias(TenantId.SYS_TENANT_ID, bundleAlias);
             if (widgetsBundle != null && !widgetsBundleId.equals(widgetsBundle.getId())) {
                 widgetsBundleService.deleteWidgetsBundle(TenantId.SYS_TENANT_ID, widgetsBundle.getId());
-                requestWidgetsBundleTypes(tenantId, widgetsBundleId, queueStartTs).get();
+                requestWidgetsBundleTypes(tenantId, widgetsBundleId).get();
             }
         } catch (IncorrectResultSizeDataAccessException e) {
             // fix for duplicate entries of system widgets
@@ -119,12 +116,12 @@ public class WidgetBundleCloudProcessor extends BaseCloudProcessor {
                 }
             }
             log.warn("Duplicate widgets bundle found, alias {}. Removed all duplicates!", bundleAlias);
-            requestWidgetsBundleTypes(tenantId, widgetsBundleId, queueStartTs).get();
+            requestWidgetsBundleTypes(tenantId, widgetsBundleId).get();
         }
     }
 
-    public UplinkMsg convertWidgetBundleTypesRequestEventToUplink(CloudEvent cloudEvent) {
-        EntityId widgetBundleId = EntityIdFactory.getByCloudEventTypeAndUuid(cloudEvent.getType(), cloudEvent.getEntityId());
+    public UplinkMsg processWidgetBundleTypesRequestMsgToCloud(CloudEvent cloudEvent) {
+        EntityId widgetBundleId = EntityIdFactory.getByCloudEventTypeAndUuid(cloudEvent.getCloudEventType(), cloudEvent.getEntityId());
         WidgetBundleTypesRequestMsg widgetBundleTypesRequestMsg = WidgetBundleTypesRequestMsg.newBuilder()
                 .setWidgetBundleIdMSB(widgetBundleId.getId().getMostSignificantBits())
                 .setWidgetBundleIdLSB(widgetBundleId.getId().getLeastSignificantBits())

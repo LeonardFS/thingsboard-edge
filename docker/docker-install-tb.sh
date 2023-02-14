@@ -41,8 +41,6 @@ set -e
 
 source compose-utils.sh
 
-COMPOSE_VERSION=$(composeVersion) || exit $?
-
 ADDITIONAL_COMPOSE_QUEUE_ARGS=$(additionalComposeQueueArgs) || exit $?
 
 ADDITIONAL_COMPOSE_ARGS=$(additionalComposeArgs) || exit $?
@@ -54,39 +52,14 @@ ADDITIONAL_STARTUP_SERVICES=$(additionalStartupServices) || exit $?
 checkFolders --create || exit $?
 
 if [ ! -z "${ADDITIONAL_STARTUP_SERVICES// }" ]; then
-
-    COMPOSE_ARGS="\
-          -f docker-compose.yml ${ADDITIONAL_CACHE_ARGS} ${ADDITIONAL_COMPOSE_ARGS} ${ADDITIONAL_COMPOSE_QUEUE_ARGS} \
-          up -d ${ADDITIONAL_STARTUP_SERVICES}"
-
-    case $COMPOSE_VERSION in
-        V2)
-            docker compose $COMPOSE_ARGS
-        ;;
-        V1)
-            docker-compose $COMPOSE_ARGS
-        ;;
-        *)
-            # unknown option
-        ;;
-    esac
+    docker-compose \
+      -f docker-compose.yml $ADDITIONAL_CACHE_ARGS $ADDITIONAL_COMPOSE_ARGS $ADDITIONAL_COMPOSE_QUEUE_ARGS \
+      up -d $ADDITIONAL_STARTUP_SERVICES
 fi
 
-COMPOSE_ARGS="\
-      -f docker-compose.yml ${ADDITIONAL_CACHE_ARGS} ${ADDITIONAL_COMPOSE_ARGS} ${ADDITIONAL_COMPOSE_QUEUE_ARGS} \
-      run --no-deps --rm -e INSTALL_TB=true -e LOAD_DEMO=${loadDemo} \
-      tb-core1"
-
-case $COMPOSE_VERSION in
-    V2)
-        docker compose $COMPOSE_ARGS
-    ;;
-    V1)
-        docker-compose $COMPOSE_ARGS
-    ;;
-    *)
-        # unknown option
-    ;;
-esac
+docker-compose \
+  -f docker-compose.yml $ADDITIONAL_CACHE_ARGS $ADDITIONAL_COMPOSE_ARGS $ADDITIONAL_COMPOSE_QUEUE_ARGS \
+  run --no-deps --rm -e INSTALL_TB=true -e LOAD_DEMO=${loadDemo} \
+  tb-core1
 
 

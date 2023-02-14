@@ -74,8 +74,6 @@ export class RuleChainsTableConfigResolver implements Resolve<EntityTableConfig<
     this.config.entityTranslations = entityTypeTranslations.get(EntityType.RULE_CHAIN);
     this.config.entityResources = entityTypeResources.get(EntityType.RULE_CHAIN);
 
-    this.config.rowPointer = true;
-
     this.config.deleteEntityTitle = ruleChain => this.translate.instant('rulechain.delete-rulechain-title',
       {ruleChainName: ruleChain.name});
     this.config.deleteEntityContent = () => this.translate.instant('rulechain.delete-rulechain-text');
@@ -85,14 +83,6 @@ export class RuleChainsTableConfigResolver implements Resolve<EntityTableConfig<
     this.config.saveEntity = ruleChain => this.saveRuleChain(ruleChain);
     this.config.deleteEntity = id => this.ruleChainService.deleteRuleChain(id.id);
     this.config.onEntityAction = action => this.onRuleChainAction(action);
-    this.config.handleRowClick = ($event, ruleChain) => {
-      if (this.config.isDetailsOpen()) {
-        this.config.toggleEntityDetails($event, ruleChain);
-      } else {
-        this.openRuleChain($event, ruleChain);
-      }
-      return true;
-    };
   }
 
   resolve(route: ActivatedRouteSnapshot): EntityTableConfig<RuleChain> {
@@ -121,7 +111,7 @@ export class RuleChainsTableConfigResolver implements Resolve<EntityTableConfig<
       this.config.entitiesDeleteEnabled = false;
     }
 
-    // @voba - edge read-only
+    // edge read-only
     this.config.detailsReadonly = () => true;
     this.config.deleteEnabled = () => false;
     this.config.addEnabled = false;
@@ -234,6 +224,12 @@ export class RuleChainsTableConfigResolver implements Resolve<EntityTableConfig<
     const actions: Array<CellActionDescriptor<RuleChain>> = [];
     actions.push(
       {
+        name: this.translate.instant('rulechain.open-rulechain'),
+        icon: 'settings_ethernet',
+        isEnabled: () => true,
+        onAction: ($event, entity) => this.openRuleChain($event, entity)
+      },
+      {
         name: this.translate.instant('rulechain.export'),
         icon: 'file_download',
         isEnabled: () => true,
@@ -290,14 +286,6 @@ export class RuleChainsTableConfigResolver implements Resolve<EntityTableConfig<
         }
       );
     }
-    actions.push(
-      {
-        name: this.translate.instant('rulechain.rulechain-details'),
-          icon: 'edit',
-        isEnabled: () => true,
-        onAction: ($event, entity) => this.config.toggleEntityDetails($event, entity)
-      }
-    );
     return actions;
   }
 

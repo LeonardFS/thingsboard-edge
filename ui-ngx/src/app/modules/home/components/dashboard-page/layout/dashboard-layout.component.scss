@@ -16,15 +16,8 @@
 :host {
   button.tb-add-new-widget {
     padding-right: 12px;
-    font-size: 20px;
+    font-size: 24px;
     border-style: dashed;
     border-width: 2px;
-
-    ::ng-deep .mat-button-wrapper {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      align-items: center;
-    }
   }
 }

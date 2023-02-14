@@ -15,9 +15,17 @@
  */
 package org.thingsboard.server.common.data.security.event;
 
-import java.io.Serializable;
+import lombok.Data;
+import org.thingsboard.server.common.data.id.UserId;
 
-public abstract class UserAuthDataChangedEvent implements Serializable {
-    public abstract String getId();
-    public abstract long getTs();
+@Data
+public class UserAuthDataChangedEvent {
+    private final UserId userId;
+    private final long ts;
+
+    public UserAuthDataChangedEvent(UserId userId) {
+        this.userId = userId;
+        this.ts = System.currentTimeMillis();
+    }
+
 }

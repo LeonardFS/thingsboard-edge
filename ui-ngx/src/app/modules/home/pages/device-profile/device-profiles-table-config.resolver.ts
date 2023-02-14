@@ -94,7 +94,6 @@ export class DeviceProfilesTableConfigResolver implements Resolve<EntityTableCon
       {
         name: this.translate.instant('device-profile.set-default'),
         icon: 'flag',
-        // @voba - edge read-only
         // isEnabled: (deviceProfile) => !deviceProfile.default,
         isEnabled: (deviceProfile) => false,
         onAction: ($event, entity) => this.setDefaultDeviceProfile($event, entity)
@@ -117,7 +116,7 @@ export class DeviceProfilesTableConfigResolver implements Resolve<EntityTableCon
     this.config.entitySelectionEnabled = (deviceProfile) => deviceProfile && !deviceProfile.default;
     this.config.addActionDescriptors = this.configureAddActions();
 
-    // @voba - edge read-only
+    // edge read-only
     this.config.detailsReadonly = () => true;
     this.config.deleteEnabled = () => false;
     this.config.addEnabled = false;
@@ -195,7 +194,7 @@ export class DeviceProfilesTableConfigResolver implements Resolve<EntityTableCon
     if ($event) {
       $event.stopPropagation();
     }
-    const url = this.router.createUrlTree(['profiles', 'deviceProfiles', deviceProfile.id.id]);
+    const url = this.router.createUrlTree(['deviceProfiles', deviceProfile.id.id]);
     this.router.navigateByUrl(url);
   }
 

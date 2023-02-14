@@ -16,7 +16,6 @@
 
 import { AfterViewInit, Component, forwardRef, Input, NgZone, OnInit, ViewChild } from '@angular/core';
 import { ControlValueAccessor, FormBuilder, FormGroup, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { MatFormFieldAppearance } from '@angular/material/form-field/form-field';
 import { Observable, of } from 'rxjs';
 import { map, mergeMap, share, tap } from 'rxjs/operators';
 import { Store } from '@ngrx/store';
@@ -44,9 +43,6 @@ export class TimezoneSelectComponent implements ControlValueAccessor, OnInit, Af
   modelValue: string | null;
 
   defaultTimezoneId: string = null;
-
-  @Input()
-  appearance: MatFormFieldAppearance = 'legacy';
 
   @Input()
   set defaultTimezone(timezone: string) {

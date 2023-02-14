@@ -18,7 +18,7 @@
 
 BASE=${project.basedir}/target
 CONF_FOLDER=${BASE}/conf
-jarfile="${BASE}/tb-edge-${project.version}-boot.jar"
+jarfile="${BASE}/thingsboard-${project.version}-boot.jar"
 installDir=${BASE}/data
 loadDemo=true
 

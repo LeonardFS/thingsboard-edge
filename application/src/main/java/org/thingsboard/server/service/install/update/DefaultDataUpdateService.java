@@ -67,8 +67,6 @@ import org.thingsboard.server.common.data.widget.WidgetsBundle;
 import org.thingsboard.server.dao.DaoUtil;
 import org.thingsboard.server.dao.alarm.AlarmDao;
 import org.thingsboard.server.dao.cloud.CloudEventService;
-import org.thingsboard.server.dao.audit.AuditLogDao;
-import org.thingsboard.server.dao.edge.EdgeEventDao;
 import org.thingsboard.server.dao.entity.EntityService;
 import org.thingsboard.server.dao.entityview.EntityViewService;
 import org.thingsboard.server.dao.event.EventService;
@@ -151,12 +149,6 @@ public class DefaultDataUpdateService implements DataUpdateService {
     @Autowired
     private EventService eventService;
 
-    @Autowired
-    private AuditLogDao auditLogDao;
-
-    @Autowired
-    private EdgeEventDao edgeEventDao;
-
     @Override
     public void updateData(String fromVersion) throws Exception {
         switch (fromVersion) {
@@ -190,29 +182,10 @@ public class DefaultDataUpdateService implements DataUpdateService {
 
                 break;
             case "3.4.0":
-                boolean skipEventsMigration = getEnv("TB_SKIP_EVENTS_MIGRATION", false);
-                if (!skipEventsMigration) {
+                String skipEventsMigration = System.getenv("TB_SKIP_EVENTS_MIGRATION");
+                if (skipEventsMigration == null || skipEventsMigration.equalsIgnoreCase("false")) {
                     log.info("Updating data from version 3.4.0 to 3.4.1 ...");
                     eventService.migrateEvents();
-                }
-
-                break;
-            case "3.4.1":
-                log.info("Updating data from version 3.4.1 to 3.4.2 ...");
-                systemDataLoaderService.saveLegacyYmlSettings();
-                boolean skipAuditLogsMigration = getEnv("TB_SKIP_AUDIT_LOGS_MIGRATION", false);
-                if (!skipAuditLogsMigration) {
-                    log.info("Starting audit logs migration. Can be skipped with TB_SKIP_AUDIT_LOGS_MIGRATION env variable set to true");
-                    auditLogDao.migrateAuditLogs();
-                } else {
-                    log.info("Skipping audit logs migration");
-                }
-                boolean skipEdgeEventsMigration = getEnv("TB_SKIP_EDGE_EVENTS_MIGRATION", false);
-                if (!skipEdgeEventsMigration) {
-                    log.info("Starting edge events migration. Can be skipped with TB_SKIP_EDGE_EVENTS_MIGRATION env variable set to true");
-                    edgeEventDao.migrateEdgeEvents();
-                } else {
-                    log.info("Skipping edge events migration");
                 }
 
                 // remove this line in 4+ release
@@ -372,6 +345,56 @@ public class DefaultDataUpdateService implements DataUpdateService {
             log.error("Unable to update Tenant", e);
         }
     }
+
+    private void fixDuplicateSystemWidgetsBundles() {
+        try {
+            List<WidgetsBundle> systemWidgetsBundles = widgetsBundleService.findSystemWidgetsBundles(TenantId.SYS_TENANT_ID);
+            for (WidgetsBundle widgetsBundle : systemWidgetsBundles) {
+                try {
+                    widgetsBundleService.findWidgetsBundleByTenantIdAndAlias(TenantId.SYS_TENANT_ID, widgetsBundle.getAlias());
+                } catch (IncorrectResultSizeDataAccessException e) {
+                    // fix for duplicate entries of system widgets
+                    for (WidgetsBundle systemWidgetsBundle : systemWidgetsBundles) {
+                        if (systemWidgetsBundle.getAlias().equals(widgetsBundle.getAlias())) {
+                            widgetsBundleService.deleteWidgetsBundle(TenantId.SYS_TENANT_ID, systemWidgetsBundle.getId());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Unable to fix duplicate system widgets bundles", e);
+        }
+    }
+
+    private final PaginatedUpdater<String, Tenant> tenantsFullSyncRequiredUpdater =
+            new PaginatedUpdater<>() {
+
+                @Override
+                protected String getName() {
+                    return "Tenants edge full sync required updater";
+                }
+
+                @Override
+                protected boolean forceReportTotal() {
+                    return true;
+                }
+
+                @Override
+                protected PageData<Tenant> findEntities(String region, PageLink pageLink) {
+                    return tenantService.findTenants(pageLink);
+                }
+
+                @Override
+                protected void updateEntity(Tenant tenant) {
+                    try {
+                        EdgeSettings edgeSettings = cloudEventService.findEdgeSettings(tenant.getId());
+                        edgeSettings.setFullSyncRequired(true);
+                        cloudEventService.saveEdgeSettings(tenant.getId(), edgeSettings);
+                    } catch (Exception e) {
+                        log.error("Unable to update Tenant", e);
+                    }
+                }
+            };
 
     private final PaginatedUpdater<String, Tenant> tenantsDefaultEdgeRuleChainUpdater =
             new PaginatedUpdater<>() {
@@ -690,66 +713,4 @@ public class DefaultDataUpdateService implements DataUpdateService {
         return mainQueueConfiguration;
     }
 
-    private boolean getEnv(String name, boolean defaultValue) {
-        String env = System.getenv(name);
-        if (env == null) {
-            return defaultValue;
-        } else {
-            return Boolean.parseBoolean(env);
-        }
-    }
-
-    private void fixDuplicateSystemWidgetsBundles() {
-        try {
-            List<WidgetsBundle> systemWidgetsBundles = widgetsBundleService.findSystemWidgetsBundles(TenantId.SYS_TENANT_ID);
-            for (WidgetsBundle widgetsBundle : systemWidgetsBundles) {
-                try {
-                    widgetsBundleService.findWidgetsBundleByTenantIdAndAlias(TenantId.SYS_TENANT_ID, widgetsBundle.getAlias());
-                } catch (IncorrectResultSizeDataAccessException e) {
-                    // fix for duplicate entries of system widgets
-                    for (WidgetsBundle systemWidgetsBundle : systemWidgetsBundles) {
-                        if (systemWidgetsBundle.getAlias().equals(widgetsBundle.getAlias())) {
-                            widgetsBundleService.deleteWidgetsBundle(TenantId.SYS_TENANT_ID, systemWidgetsBundle.getId());
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.error("Unable to fix duplicate system widgets bundles", e);
-        }
-    }
-
-    private final PaginatedUpdater<String, Tenant> tenantsFullSyncRequiredUpdater =
-            new PaginatedUpdater<>() {
-
-                @Override
-                protected String getName() {
-                    return "Tenants edge full sync required updater";
-                }
-
-                @Override
-                protected boolean forceReportTotal() {
-                    return true;
-                }
-
-                @Override
-                protected PageData<Tenant> findEntities(String region, PageLink pageLink) {
-                    return tenantService.findTenants(pageLink);
-                }
-
-                @Override
-                protected void updateEntity(Tenant tenant) {
-                    try {
-                        EdgeSettings edgeSettings = cloudEventService.findEdgeSettings(tenant.getId());
-                        if (edgeSettings != null) {
-                            edgeSettings.setFullSyncRequired(true);
-                            cloudEventService.saveEdgeSettings(tenant.getId(), edgeSettings);
-                        } else {
-                            log.warn("Edge settings not found for tenant: {}", tenant.getId());
-                        }
-                    } catch (Exception e) {
-                        log.error("Unable to update Tenant", e);
-                    }
-                }
-            };
 }

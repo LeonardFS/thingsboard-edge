@@ -22,7 +22,6 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.thingsboard.server.common.data.BaseData;
 import org.thingsboard.server.common.data.id.*;
-import org.thingsboard.server.common.data.validation.NoXss;
 
 @ApiModel
 @EqualsAndHashCode(callSuper = true)
@@ -35,7 +34,6 @@ public class AuditLog extends BaseData<AuditLogId> {
     private CustomerId customerId;
     @ApiModelProperty(position = 5, value = "JSON object with Entity id", accessMode = ApiModelProperty.AccessMode.READ_ONLY)
     private EntityId entityId;
-    @NoXss
     @ApiModelProperty(position = 6, value = "Name of the logged entity", example = "Thermometer", accessMode = ApiModelProperty.AccessMode.READ_ONLY)
     private String entityName;
     @ApiModelProperty(position = 7, value = "JSON object with User id.", accessMode = ApiModelProperty.AccessMode.READ_ONLY)

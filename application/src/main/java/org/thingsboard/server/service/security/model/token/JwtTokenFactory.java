@@ -24,8 +24,8 @@ import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.UnsupportedJwtException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
@@ -35,9 +35,9 @@ import org.thingsboard.server.common.data.id.TenantId;
 import org.thingsboard.server.common.data.id.UserId;
 import org.thingsboard.server.common.data.security.Authority;
 import org.thingsboard.server.common.data.security.model.JwtToken;
-import org.thingsboard.server.service.security.auth.jwt.settings.JwtSettingsService;
+import org.thingsboard.server.config.JwtSettings;
 import org.thingsboard.server.service.security.exception.JwtExpiredTokenException;
-import org.thingsboard.server.common.data.security.model.JwtPair;
+import org.thingsboard.server.service.security.model.JwtTokenPair;
 import org.thingsboard.server.service.security.model.SecurityUser;
 import org.thingsboard.server.service.security.model.UserPrincipal;
 
@@ -49,7 +49,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class JwtTokenFactory {
 
@@ -61,9 +60,13 @@ public class JwtTokenFactory {
     private static final String IS_PUBLIC = "isPublic";
     private static final String TENANT_ID = "tenantId";
     private static final String CUSTOMER_ID = "customerId";
-    private static final String SESSION_ID = "sessionId";
 
-    private final JwtSettingsService jwtSettingsService;
+    private final JwtSettings settings;
+
+    @Autowired
+    public JwtTokenFactory(JwtSettings settings) {
+        this.settings = settings;
+    }
 
     /**
      * Factory method for issuing new JWT Tokens.
@@ -76,7 +79,7 @@ public class JwtTokenFactory {
         UserPrincipal principal = securityUser.getUserPrincipal();
 
         JwtBuilder jwtBuilder = setUpToken(securityUser, securityUser.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority).collect(Collectors.toList()), jwtSettingsService.getJwtSettings().getTokenExpirationTime());
+                .map(GrantedAuthority::getAuthority).collect(Collectors.toList()), settings.getTokenExpirationTime());
         jwtBuilder.claim(FIRST_NAME, securityUser.getFirstName())
                 .claim(LAST_NAME, securityUser.getLastName())
                 .claim(ENABLED, securityUser.isEnabled())
@@ -116,9 +119,6 @@ public class JwtTokenFactory {
         if (customerId != null) {
             securityUser.setCustomerId(new CustomerId(UUID.fromString(customerId)));
         }
-        if (claims.get(SESSION_ID, String.class) != null) {
-            securityUser.setSessionId(claims.get(SESSION_ID, String.class));
-        }
 
         UserPrincipal principal;
         if (securityUser.getAuthority() != Authority.PRE_VERIFICATION_TOKEN) {
@@ -138,7 +138,7 @@ public class JwtTokenFactory {
     public JwtToken createRefreshToken(SecurityUser securityUser) {
         UserPrincipal principal = securityUser.getUserPrincipal();
 
-        String token = setUpToken(securityUser, Collections.singletonList(Authority.REFRESH_TOKEN.name()), jwtSettingsService.getJwtSettings().getRefreshTokenExpTime())
+        String token = setUpToken(securityUser, Collections.singletonList(Authority.REFRESH_TOKEN.name()), settings.getRefreshTokenExpTime())
                 .claim(IS_PUBLIC, principal.getType() == UserPrincipal.Type.PUBLIC_ID)
                 .setId(UUID.randomUUID().toString()).compact();
 
@@ -161,9 +161,6 @@ public class JwtTokenFactory {
         UserPrincipal principal = new UserPrincipal(isPublic ? UserPrincipal.Type.PUBLIC_ID : UserPrincipal.Type.USER_NAME, subject);
         SecurityUser securityUser = new SecurityUser(new UserId(UUID.fromString(claims.get(USER_ID, String.class))));
         securityUser.setUserPrincipal(principal);
-        if (claims.get(SESSION_ID, String.class) != null) {
-            securityUser.setSessionId(claims.get(SESSION_ID, String.class));
-        }
         return securityUser;
     }
 
@@ -186,38 +183,35 @@ public class JwtTokenFactory {
         Claims claims = Jwts.claims().setSubject(principal.getValue());
         claims.put(USER_ID, securityUser.getId().getId().toString());
         claims.put(SCOPES, scopes);
-        if (securityUser.getSessionId() != null) {
-            claims.put(SESSION_ID, securityUser.getSessionId());
-        }
 
         ZonedDateTime currentTime = ZonedDateTime.now();
 
         return Jwts.builder()
                 .setClaims(claims)
-                .setIssuer(jwtSettingsService.getJwtSettings().getTokenIssuer())
+                .setIssuer(settings.getTokenIssuer())
                 .setIssuedAt(Date.from(currentTime.toInstant()))
                 .setExpiration(Date.from(currentTime.plusSeconds(expirationTime).toInstant()))
-                .signWith(SignatureAlgorithm.HS512, jwtSettingsService.getJwtSettings().getTokenSigningKey());
+                .signWith(SignatureAlgorithm.HS512, settings.getTokenSigningKey());
     }
 
     public Jws<Claims> parseTokenClaims(JwtToken token) {
         try {
             return Jwts.parser()
-                    .setSigningKey(jwtSettingsService.getJwtSettings().getTokenSigningKey())
+                    .setSigningKey(settings.getTokenSigningKey())
                     .parseClaimsJws(token.getToken());
-        } catch (UnsupportedJwtException | MalformedJwtException | IllegalArgumentException ex) {
+        } catch (UnsupportedJwtException | MalformedJwtException | IllegalArgumentException | SignatureException ex) {
             log.debug("Invalid JWT Token", ex);
             throw new BadCredentialsException("Invalid JWT token: ", ex);
-        } catch (SignatureException | ExpiredJwtException expiredEx) {
+        } catch (ExpiredJwtException expiredEx) {
             log.debug("JWT Token is expired", expiredEx);
             throw new JwtExpiredTokenException(token, "JWT Token expired", expiredEx);
         }
     }
 
-    public JwtPair createTokenPair(SecurityUser securityUser) {
+    public JwtTokenPair createTokenPair(SecurityUser securityUser) {
         JwtToken accessToken = createAccessJwtToken(securityUser);
         JwtToken refreshToken = createRefreshToken(securityUser);
-        return new JwtPair(accessToken.getToken(), refreshToken.getToken());
+        return new JwtTokenPair(accessToken.getToken(), refreshToken.getToken());
     }
 
 }

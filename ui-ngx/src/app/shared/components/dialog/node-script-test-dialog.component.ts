@@ -37,7 +37,7 @@ import { Router } from '@angular/router';
 import { DialogComponent } from '@shared/components/dialog.component';
 import { ContentType } from '@shared/models/constants';
 import { JsonContentComponent } from '@shared/components/json-content.component';
-import { ScriptLanguage, TestScriptInputParams } from '@shared/models/rule-node.models';
+import { TestScriptInputParams } from '@shared/models/rule-node.models';
 import { RuleChainService } from '@core/http/rule-chain.service';
 import { mergeMap } from 'rxjs/operators';
 import { ActionNotificationShow } from '@core/notification/notification.actions';
@@ -49,7 +49,6 @@ export interface NodeScriptTestDialogData {
   functionTitle: string;
   functionName: string;
   argNames: string[];
-  scriptLang?: ScriptLanguage;
   msg?: any;
   metadata?: {[key: string]: string};
   msgType?: string;
@@ -97,10 +96,6 @@ export class NodeScriptTestDialogComponent extends DialogComponent<NodeScriptTes
   submitted = false;
 
   contentTypes = ContentType;
-
-  scriptLanguage = ScriptLanguage;
-
-  scriptLang = this.data.scriptLang ? this.data.scriptLang : ScriptLanguage.JS;
 
   constructor(protected store: Store<AppState>,
               protected router: Router,
@@ -196,7 +191,7 @@ export class NodeScriptTestDialogComponent extends DialogComponent<NodeScriptTes
         metadata: this.nodeScriptTestFormGroup.get('metadata').value,
         script: this.nodeScriptTestFormGroup.get('script').value
       };
-      return this.ruleChainService.testScript(inputParams, this.scriptLang).pipe(
+      return this.ruleChainService.testScript(inputParams).pipe(
         mergeMap((result) => {
           if (result.error) {
             this.store.dispatch(new ActionNotificationShow(

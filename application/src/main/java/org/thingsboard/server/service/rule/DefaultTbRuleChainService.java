@@ -203,7 +203,7 @@ public class DefaultTbRuleChainService extends AbstractTbEntityService implement
 
             List<EdgeId> relatedEdgeIds = null;
             if (RuleChainType.EDGE.equals(ruleChain.getType())) {
-                relatedEdgeIds = edgeService.findAllRelatedEdgeIds(tenantId, ruleChainId);
+                relatedEdgeIds = findRelatedEdgeIds(tenantId, ruleChainId);
             }
 
             ruleChainService.deleteRuleChainById(tenantId, ruleChainId);

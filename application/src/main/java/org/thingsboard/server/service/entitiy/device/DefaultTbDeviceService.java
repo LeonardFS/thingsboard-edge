@@ -76,18 +76,17 @@ public class DefaultTbDeviceService extends AbstractTbEntityService implements T
 
     @Override
     public Device saveDeviceWithCredentials(Device device, DeviceCredentials credentials, User user) throws ThingsboardException {
-        boolean isCreate = device.getId() == null;
-        ActionType actionType = isCreate ? ActionType.ADDED : ActionType.UPDATED;
+        ActionType actionType = device.getId() == null ? ActionType.ADDED : ActionType.UPDATED;
         TenantId tenantId = device.getTenantId();
         try {
-            Device oldDevice = isCreate ? null : deviceService.findDeviceById(tenantId, device.getId());
             Device savedDevice = checkNotNull(deviceService.saveDeviceWithCredentials(device, credentials));
             notificationEntityService.notifyCreateOrUpdateDevice(tenantId, savedDevice.getId(), savedDevice.getCustomerId(),
-                    savedDevice, oldDevice, actionType, user);
+                    savedDevice, device, actionType, user);
 
             return savedDevice;
         } catch (Exception e) {
-            notificationEntityService.logEntityAction(tenantId, emptyId(EntityType.DEVICE), device, actionType, user, e);
+            notificationEntityService.logEntityAction(tenantId, emptyId(EntityType.DEVICE), device,
+                    actionType, user, e);
             throw e;
         }
     }
@@ -97,7 +96,7 @@ public class DefaultTbDeviceService extends AbstractTbEntityService implements T
         TenantId tenantId = device.getTenantId();
         DeviceId deviceId = device.getId();
         try {
-            List<EdgeId> relatedEdgeIds = edgeService.findAllRelatedEdgeIds(tenantId, deviceId);
+            List<EdgeId> relatedEdgeIds = findRelatedEdgeIds(tenantId, deviceId);
             deviceService.deleteDevice(tenantId, deviceId);
             notificationEntityService.notifyDeleteDevice(tenantId, deviceId, device.getCustomerId(), device,
                     relatedEdgeIds, user, deviceId.toString());

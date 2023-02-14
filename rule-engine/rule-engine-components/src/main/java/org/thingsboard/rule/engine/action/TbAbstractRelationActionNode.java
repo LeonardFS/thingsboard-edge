@@ -32,7 +32,6 @@ import org.thingsboard.rule.engine.api.util.TbNodeUtils;
 import org.thingsboard.rule.engine.util.EntityContainer;
 import org.thingsboard.server.common.data.Customer;
 import org.thingsboard.server.common.data.DashboardInfo;
-import org.thingsboard.server.common.data.DataConstants;
 import org.thingsboard.server.common.data.Device;
 import org.thingsboard.server.common.data.EntityType;
 import org.thingsboard.server.common.data.EntityView;
@@ -41,6 +40,8 @@ import org.thingsboard.server.common.data.asset.Asset;
 import org.thingsboard.server.common.data.edge.Edge;
 import org.thingsboard.server.common.data.id.EntityId;
 import org.thingsboard.server.common.data.id.EntityIdFactory;
+import org.thingsboard.server.common.data.page.PageData;
+import org.thingsboard.server.common.data.page.PageLink;
 import org.thingsboard.server.common.data.relation.EntityRelation;
 import org.thingsboard.server.common.data.relation.EntitySearchDirection;
 import org.thingsboard.server.common.data.relation.RelationTypeGroup;
@@ -87,9 +88,6 @@ public abstract class TbAbstractRelationActionNode<C extends TbAbstractRelationA
 
     @Override
     public void destroy() {
-        if (entityIdCache != null) {
-            entityIdCache.invalidateAll();
-        }
     }
 
     protected ListenableFuture<RelationContainer> processEntityRelationAction(TbContext ctx, TbMsg msg, String relationType) {
@@ -115,8 +113,7 @@ public abstract class TbAbstractRelationActionNode<C extends TbAbstractRelationA
         return ctx.getDbCallbackExecutor().executeAsync(() -> {
             EntityContainer entityContainer = entityIdCache.get(key);
             if (entityContainer.getEntityId() == null) {
-                throw new RuntimeException("No entity found with type '" + key.getEntityType() + "' and name '" + key.getEntityName() + "'."
-                        + DataConstants.ENTITY_CREATION_ON_EDGE_NOT_SUPPORTED_WARNING);
+                throw new RuntimeException("No entity found with type '" + key.getEntityType() + "' and name '" + key.getEntityName() + "'.");
             }
             return entityContainer;
         });
@@ -206,37 +203,33 @@ public abstract class TbAbstractRelationActionNode<C extends TbAbstractRelationA
                     Asset asset = assetService.findAssetByTenantIdAndName(ctx.getTenantId(), entitykey.getEntityName());
                     if (asset != null) {
                         targetEntity.setEntityId(asset.getId());
+                    } else if (createIfNotExists) {
+                        Asset newAsset = new Asset();
+                        newAsset.setName(entitykey.getEntityName());
+                        newAsset.setType(entitykey.getType());
+                        newAsset.setTenantId(ctx.getTenantId());
+                        Asset savedAsset = assetService.saveAsset(newAsset);
+                        ctx.enqueue(ctx.assetCreatedMsg(savedAsset, ctx.getSelfId()),
+                                () -> log.trace("Pushed Asset Created message: {}", savedAsset),
+                                throwable -> log.warn("Failed to push Asset Created message: {}", savedAsset, throwable));
+                        targetEntity.setEntityId(savedAsset.getId());
                     }
-                    // TODO: @voba assets are not created on the edge at the moment
-                    // else if (createIfNotExists) {
-                    //     Asset newAsset = new Asset();
-                    //     newAsset.setName(entitykey.getEntityName());
-                    //     newAsset.setType(entitykey.getType());
-                    //     newAsset.setTenantId(ctx.getTenantId());
-                    //     Asset savedAsset = assetService.saveAsset(newAsset);
-                    //     ctx.enqueue(ctx.assetCreatedMsg(savedAsset, ctx.getSelfId()),
-                    //             () -> log.trace("Pushed Asset Created message: {}", savedAsset),
-                    //             throwable -> log.warn("Failed to push Asset Created message: {}", savedAsset, throwable));
-                    //     targetEntity.setEntityId(savedAsset.getId());
-                    // }
                     break;
                 case CUSTOMER:
                     CustomerService customerService = ctx.getCustomerService();
                     Optional<Customer> customerOptional = customerService.findCustomerByTenantIdAndTitle(ctx.getTenantId(), entitykey.getEntityName());
                     if (customerOptional.isPresent()) {
                         targetEntity.setEntityId(customerOptional.get().getId());
+                    } else if (createIfNotExists) {
+                        Customer newCustomer = new Customer();
+                        newCustomer.setTitle(entitykey.getEntityName());
+                        newCustomer.setTenantId(ctx.getTenantId());
+                        Customer savedCustomer = customerService.saveCustomer(newCustomer);
+                        ctx.enqueue(ctx.customerCreatedMsg(savedCustomer, ctx.getSelfId()),
+                                () -> log.trace("Pushed Customer Created message: {}", savedCustomer),
+                                throwable -> log.warn("Failed to push Customer Created message: {}", savedCustomer, throwable));
+                        targetEntity.setEntityId(savedCustomer.getId());
                     }
-                    // TODO: @voba customers are not created on the edge at the moment
-                    // else if (createIfNotExists) {
-                    //     Customer newCustomer = new Customer();
-                    //     newCustomer.setTitle(entitykey.getEntityName());
-                    //     newCustomer.setTenantId(ctx.getTenantId());
-                    //     Customer savedCustomer = customerService.saveCustomer(newCustomer);
-                    //     ctx.enqueue(ctx.customerCreatedMsg(savedCustomer, ctx.getSelfId()),
-                    //             () -> log.trace("Pushed Customer Created message: {}", savedCustomer),
-                    //             throwable -> log.warn("Failed to push Customer Created message: {}", savedCustomer, throwable));
-                    //     targetEntity.setEntityId(savedCustomer.getId());
-                    // }
                     break;
                 case TENANT:
                     targetEntity.setEntityId(ctx.getTenantId());
@@ -257,14 +250,16 @@ public abstract class TbAbstractRelationActionNode<C extends TbAbstractRelationA
                     break;
                 case DASHBOARD:
                     DashboardService dashboardService = ctx.getDashboardService();
-                    DashboardInfo dashboardInfo = dashboardService.findFirstDashboardInfoByTenantIdAndName(ctx.getTenantId(), entitykey.getEntityName());
-                    if (dashboardInfo != null) {
-                        targetEntity.setEntityId(dashboardInfo.getId());
+                    PageData<DashboardInfo> dashboardInfoTextPageData = dashboardService.findDashboardsByTenantId(ctx.getTenantId(), new PageLink(200, 0, entitykey.getEntityName()));
+                    for (DashboardInfo dashboardInfo : dashboardInfoTextPageData.getData()) {
+                        if (dashboardInfo.getTitle().equals(entitykey.getEntityName())) {
+                            targetEntity.setEntityId(dashboardInfo.getId());
+                        }
                     }
                     break;
                 case USER:
                     UserService userService = ctx.getUserService();
-                    User user = userService.findUserByTenantIdAndEmail(ctx.getTenantId(), entitykey.getEntityName());
+                    User user = userService.findUserByEmail(ctx.getTenantId(), entitykey.getEntityName());
                     if (user != null) {
                         targetEntity.setEntityId(user.getId());
                     }

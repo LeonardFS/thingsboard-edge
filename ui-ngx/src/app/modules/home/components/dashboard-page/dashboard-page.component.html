@@ -16,7 +16,7 @@
 
 -->
 <div class="tb-dashboard-page mat-content" [ngClass]="{'mobile-app': isMobileApp && !isEdit}"
-     fxFlex tb-fullscreen [fullscreenElement]="elRef.nativeElement" [fullscreen]="widgetEditMode || iframeMode || forceFullscreen || isFullscreen">
+     fxFlex tb-fullscreen [fullscreen]="widgetEditMode || iframeMode || forceFullscreen || isFullscreen">
   <tb-hotkeys-cheatsheet #cheatSheetComponent></tb-hotkeys-cheatsheet>
   <section class="tb-dashboard-toolbar"
            [ngClass]="{ 'tb-dashboard-toolbar-opened': toolbarOpened,
@@ -187,8 +187,7 @@
               [isEditingWidget]="isEditingWidget"
               [isMobile]="forceDashboardMobileMode"
               [widgetEditMode]="widgetEditMode"
-              [parentDashboard]="parentDashboard"
-              [popoverComponent]="popoverComponent">
+              [parentDashboard]="parentDashboard">
             </tb-dashboard-layout>
           </mat-drawer>
           <mat-drawer-content [fxShow]="layouts.main.show"
@@ -203,8 +202,7 @@
               [isEditingWidget]="isEditingWidget"
               [isMobile]="forceDashboardMobileMode"
               [widgetEditMode]="widgetEditMode"
-              [parentDashboard]="parentDashboard"
-              [popoverComponent]="popoverComponent">
+              [parentDashboard]="parentDashboard">
             </tb-dashboard-layout>
           </mat-drawer-content>
         </mat-drawer-container>
@@ -230,10 +228,10 @@
                   matTooltipPosition="above">
             <mat-icon>{{ isEdit ? 'close' : 'edit' }}</mat-icon>
           </button>
-  <!--       </section>
+        </section>
         <section *ngIf="!embedded" data-html2canvas-ignore class="tb-powered-by-footer" [ngStyle]="{'color': dashboard.configuration.settings.titleColor}">
           <span>Powered by <a href="https://thingsboard.io" target="_blank">Thingsboard v.{{ thingsboardVersion }}</a></span>
-        </section> -->
+        </section>
       </mat-drawer-content>
       <mat-drawer class="tb-details-drawer"
                   [opened]="isEditingWidget || isAddingWidget"

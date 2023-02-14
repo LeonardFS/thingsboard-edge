@@ -73,9 +73,9 @@ public class TbMsgPushToCloudNode extends AbstractTbMsgPushNode<TbMsgPushToCloud
     CloudEvent buildEvent(TenantId tenantId, EdgeEventActionType eventAction, UUID entityId, CloudEventType eventType, JsonNode entityBody) {
         CloudEvent cloudEvent = new CloudEvent();
         cloudEvent.setTenantId(tenantId);
-        cloudEvent.setAction(eventAction);
+        cloudEvent.setCloudEventAction(eventAction.name());
         cloudEvent.setEntityId(entityId);
-        cloudEvent.setType(eventType);
+        cloudEvent.setCloudEventType(eventType);
         cloudEvent.setEntityBody(entityBody);
         return cloudEvent;
     }

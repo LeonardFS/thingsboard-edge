@@ -26,7 +26,6 @@ import java.util.Map;
 public class TbKafkaNodeConfiguration implements NodeConfiguration<TbKafkaNodeConfiguration> {
 
     private String topicPattern;
-    private String keyPattern;
     private String bootstrapServers;
     private int retries;
     private int batchSize;

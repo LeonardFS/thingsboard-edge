@@ -40,7 +40,6 @@ import org.thingsboard.server.common.data.device.profile.DisabledDeviceProfilePr
 import org.thingsboard.server.common.data.device.profile.Lwm2mDeviceProfileTransportConfiguration;
 import org.thingsboard.server.common.data.device.profile.lwm2m.OtherConfiguration;
 import org.thingsboard.server.common.data.device.profile.lwm2m.TelemetryMappingConfiguration;
-import org.thingsboard.server.common.data.id.DeviceId;
 import org.thingsboard.server.common.data.id.TenantId;
 import org.thingsboard.server.common.data.security.DeviceCredentials;
 import org.thingsboard.server.common.data.security.DeviceCredentialsType;
@@ -77,7 +76,7 @@ public class DeviceBulkImportService extends AbstractBulkImportService<Device> {
 
     @Override
     protected void setEntityFields(Device entity, Map<BulkImportColumnType, String> fields) {
-        ObjectNode additionalInfo = getOrCreateAdditionalInfoObj(entity);
+        ObjectNode additionalInfo = (ObjectNode) Optional.ofNullable(entity.getAdditionalInfo()).orElseGet(JacksonUtil::newObjectNode);
         fields.forEach((columnType, value) -> {
             switch (columnType) {
                 case NAME:
@@ -105,7 +104,7 @@ public class DeviceBulkImportService extends AbstractBulkImportService<Device> {
     protected Device saveEntity(SecurityUser user, Device entity, Map<BulkImportColumnType, String> fields) {
         DeviceCredentials deviceCredentials;
         try {
-            deviceCredentials = createDeviceCredentials(entity.getTenantId(), entity.getId(), fields);
+            deviceCredentials = createDeviceCredentials(fields);
             deviceCredentialsService.formatCredentials(deviceCredentials);
         } catch (Exception e) {
             throw new DeviceCredentialsValidationException("Invalid device credentials: " + e.getMessage());
@@ -115,9 +114,7 @@ public class DeviceBulkImportService extends AbstractBulkImportService<Device> {
         if (deviceCredentials.getCredentialsType() == DeviceCredentialsType.LWM2M_CREDENTIALS) {
             deviceProfile = setUpLwM2mDeviceProfile(entity.getTenantId(), entity);
         } else if (StringUtils.isNotEmpty(entity.getType())) {
-            // TODO: @voba device profiles are not created on edge at the moment
-            // deviceProfile = deviceProfileService.findOrCreateDeviceProfile(entity.getTenantId(), entity.getType());
-            deviceProfile = deviceService.findDeviceProfileByNameOrDefault(entity.getTenantId(), entity.getType());
+            deviceProfile = deviceProfileService.findOrCreateDeviceProfile(entity.getTenantId(), entity.getType());
         } else {
             deviceProfile = deviceProfileService.findDefaultDeviceProfile(entity.getTenantId());
         }
@@ -139,7 +136,7 @@ public class DeviceBulkImportService extends AbstractBulkImportService<Device> {
     }
 
     @SneakyThrows
-    private DeviceCredentials createDeviceCredentials(TenantId tenantId, DeviceId deviceId, Map<BulkImportColumnType, String> fields) {
+    private DeviceCredentials createDeviceCredentials(Map<BulkImportColumnType, String> fields) {
         DeviceCredentials credentials = new DeviceCredentials();
         if (fields.containsKey(BulkImportColumnType.LWM2M_CLIENT_ENDPOINT)) {
             credentials.setCredentialsType(DeviceCredentialsType.LWM2M_CREDENTIALS);
@@ -150,9 +147,7 @@ public class DeviceBulkImportService extends AbstractBulkImportService<Device> {
         } else if (CollectionUtils.containsAny(fields.keySet(), EnumSet.of(BulkImportColumnType.MQTT_CLIENT_ID, BulkImportColumnType.MQTT_USER_NAME, BulkImportColumnType.MQTT_PASSWORD))) {
             credentials.setCredentialsType(DeviceCredentialsType.MQTT_BASIC);
             setUpBasicMqttCredentials(fields, credentials);
-        } else if (deviceId != null && !fields.containsKey(BulkImportColumnType.ACCESS_TOKEN)) {
-            credentials = deviceCredentialsService.findDeviceCredentialsByDeviceId(tenantId, deviceId);
-        } else  {
+        } else {
             credentials.setCredentialsType(DeviceCredentialsType.ACCESS_TOKEN);
             setUpAccessTokenCredentials(fields, credentials);
         }

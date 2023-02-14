@@ -15,7 +15,7 @@
 #
 
 
-version: '3.0'
+version: '2.2'
 
 services:
   zookeeper:
@@ -30,8 +30,7 @@ services:
   tb-js-executor:
     restart: always
     image: "${DOCKER_REPO}/${JS_EXECUTOR_DOCKER_NAME}:${TB_VERSION}"
-    deploy:
-      replicas: 10
+    scale: 10
     env_file:
       - tb-js-executor.env
   tb-core1:

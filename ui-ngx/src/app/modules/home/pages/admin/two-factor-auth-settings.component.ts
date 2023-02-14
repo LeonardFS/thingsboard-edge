@@ -192,7 +192,7 @@ export class TwoFactorAuthSettingsComponent extends PageComponent implements OnI
     };
     switch (provider) {
       case TwoFactorAuthProviderType.TOTP:
-        formControlConfig.issuerName = [{value: 'ThingsBoard', disabled: true}, [Validators.required, Validators.pattern(/^(?!^\s+$).*$/)]];
+        formControlConfig.issuerName = [{value: 'ThingsBoard', disabled: true}, [Validators.required, Validators.pattern(/^\S+$/)]];
         break;
       case TwoFactorAuthProviderType.SMS:
         formControlConfig.smsVerificationMessageTemplate = [{value: 'Verification code: ${code}', disabled: true}, [

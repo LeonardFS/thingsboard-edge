@@ -26,7 +26,6 @@ import org.thingsboard.server.service.component.ComponentDiscoveryService;
 import org.thingsboard.server.service.install.DatabaseEntitiesUpgradeService;
 import org.thingsboard.server.service.install.DatabaseTsUpgradeService;
 import org.thingsboard.server.service.install.EntityDatabaseSchemaService;
-import org.thingsboard.server.service.install.NoSqlKeyspaceService;
 import org.thingsboard.server.service.install.SystemDataLoaderService;
 import org.thingsboard.server.service.install.TsDatabaseSchemaService;
 import org.thingsboard.server.service.install.TsLatestDatabaseSchemaService;
@@ -51,9 +50,6 @@ public class ThingsboardInstallService {
 
     @Autowired
     private EntityDatabaseSchemaService entityDatabaseSchemaService;
-
-    @Autowired(required = false)
-    private NoSqlKeyspaceService noSqlKeyspaceService;
 
     @Autowired
     private TsDatabaseSchemaService tsDatabaseSchemaService;
@@ -231,15 +227,11 @@ public class ThingsboardInstallService {
                         case "3.4.0":
                             log.info("Upgrading ThingsBoard from version 3.4.0 to 3.4.1 ...");
                             databaseEntitiesUpgradeService.upgradeDatabase("3.4.0");
-                        case "3.4.1":
-                            log.info("Upgrading ThingsBoard from version 3.4.1 to 3.4.2 ...");
-                            databaseEntitiesUpgradeService.upgradeDatabase("3.4.1");
 
                             // reset full sync required - to upload latest widgets from cloud
                             // fromVersion must be updated per release
                             // DefaultDataUpdateService must be updated as well
-                            // tenantsFullSyncRequiredUpdater and fixDuplicateSystemWidgetsBundles moved to latest version
-                            dataUpdateService.updateData("3.4.1");
+                            dataUpdateService.updateData("3.4.0");
 
                             // @voba - system widgets update is not required - uploaded from cloud
                             // log.info("Updating system data...");
@@ -266,10 +258,6 @@ public class ThingsboardInstallService {
 
                 log.info("Installing DataBase schema for timeseries...");
 
-                if (noSqlKeyspaceService != null) {
-                    noSqlKeyspaceService.createDatabaseSchema();
-                }
-
                 tsDatabaseSchemaService.createDatabaseSchema();
 
                 if (tsLatestDatabaseSchemaService != null) {
@@ -283,7 +271,6 @@ public class ThingsboardInstallService {
                 // systemDataLoaderService.createSysAdmin();
                 systemDataLoaderService.createDefaultTenantProfiles();
                 systemDataLoaderService.createAdminSettings();
-                systemDataLoaderService.createRandomJwtSettings();
                 // systemDataLoaderService.loadSystemWidgets();
                 // systemDataLoaderService.createOAuth2Templates();
                 // systemDataLoaderService.createQueues();

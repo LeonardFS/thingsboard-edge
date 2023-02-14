@@ -293,13 +293,18 @@ public class DefaultTransportApiService implements TransportApiService {
                     device = new Device();
                     device.setTenantId(tenantId);
                     device.setName(requestMsg.getDeviceName());
-                    // device.setType(requestMsg.getDeviceType());
-                    device.setCustomerId(gateway.getCustomerId());
+
                     // TODO: @voba device profiles are not created on edge at the moment
+                    String deviceType = checkDeviceTypeExistsOrDefault(tenantId, requestMsg.getDeviceType());
+                    device.setType(deviceType);
+                    // device.setType(requestMsg.getDeviceType());
+
+                    device.setCustomerId(gateway.getCustomerId());
+
+                    DeviceProfile deviceProfile = deviceProfileCache.findOrCreateDeviceProfile(gateway.getTenantId(), deviceType);
                     //DeviceProfile deviceProfile = deviceProfileCache.findOrCreateDeviceProfile(gateway.getTenantId(), requestMsg.getDeviceType());
-                    DeviceProfile deviceProfile = deviceService.findDeviceProfileByNameOrDefault(gateway.getTenantId(), requestMsg.getDeviceType());
+
                     device.setDeviceProfileId(deviceProfile.getId());
-                    device.setType(deviceProfile.getName());
                     ObjectNode additionalInfo = JacksonUtil.newObjectNode();
                     additionalInfo.put(DataConstants.LAST_CONNECTED_GATEWAY, gatewayId.toString());
                     device.setAdditionalInfo(additionalInfo);
@@ -353,6 +358,14 @@ public class DefaultTransportApiService implements TransportApiService {
                 deviceCreationLock.unlock();
             }
         }, dbCallbackExecutorService);
+    }
+
+    private String checkDeviceTypeExistsOrDefault(TenantId tenantId, String deviceType) {
+        DeviceProfile deviceProfileByName = deviceProfileService.findDeviceProfileByName(tenantId, deviceType);
+        if (deviceProfileByName != null) {
+            return deviceType;
+        }
+        return deviceProfileService.findDefaultDeviceProfile(tenantId).getName();
     }
 
     private ListenableFuture<TransportApiResponseMsg> handle(ProvisionDeviceRequestMsg requestMsg) {

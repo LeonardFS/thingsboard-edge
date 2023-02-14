@@ -195,22 +195,18 @@ export class AuthService {
       ));
   }
 
-  public logout(captureLastUrl: boolean = false, ignoreRequest = false) {
+  public logout(captureLastUrl: boolean = false) {
     if (captureLastUrl) {
       this.redirectUrl = this.router.url;
     }
-    if (!ignoreRequest) {
-      this.http.post('/api/auth/logout', null, defaultHttpOptions(true, true))
-        .subscribe(() => {
-            this.clearJwtToken();
-          },
-          () => {
-            this.clearJwtToken();
-          }
-        );
-    } else {
-      this.clearJwtToken();
-    }
+    this.http.post('/api/auth/logout', null, defaultHttpOptions(true, true))
+      .subscribe(() => {
+          this.clearJwtToken();
+        },
+        () => {
+          this.clearJwtToken();
+        }
+      );
   }
 
   private notifyUserLoaded(isUserLoaded: boolean) {
@@ -482,20 +478,11 @@ export class AuthService {
     }
   }
 
-  private loadTbelEnabled(authUser: AuthUser): Observable<boolean> {
-    if (authUser.authority === Authority.TENANT_ADMIN) {
-      return this.http.get<boolean>('/api/ruleChain/tbelEnabled', defaultHttpOptions());
-    } else {
-      return of(false);
-    }
-  }
-
   private loadSystemParams(authPayload: AuthPayload): Observable<SysParamsState> {
     const sources = [this.loadIsUserTokenAccessEnabled(authPayload.authUser),
                      this.fetchAllowedDashboardIds(authPayload),
                      this.loadIsEdgesSupportEnabled(),
                      this.loadHasRepository(authPayload.authUser),
-                     this.loadTbelEnabled(authPayload.authUser),
                      this.timeService.loadMaxDatapointsLimit()];
     return forkJoin(sources)
       .pipe(map((data) => {
@@ -503,8 +490,7 @@ export class AuthService {
         const allowedDashboardIds: string[] = data[1] as string[];
         const edgesSupportEnabled: boolean = data[2] as boolean;
         const hasRepository: boolean = data[3] as boolean;
-        const tbelEnabled: boolean = data[4] as boolean;
-        return {userTokenAccessEnabled, allowedDashboardIds, edgesSupportEnabled, hasRepository, tbelEnabled};
+        return {userTokenAccessEnabled, allowedDashboardIds, edgesSupportEnabled, hasRepository};
       }, catchError((err) => {
         return of({});
       })));

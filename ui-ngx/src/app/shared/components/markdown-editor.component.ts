@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, ElementRef, forwardRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, forwardRef, Input, OnInit, ViewChild } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { Ace } from 'ace-builds';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
@@ -32,15 +32,13 @@ import { getAce } from '@shared/models/ace/ace.models';
     }
   ]
 })
-export class MarkdownEditorComponent implements OnInit, ControlValueAccessor, OnDestroy {
+export class MarkdownEditorComponent implements OnInit, ControlValueAccessor {
 
   @Input() label: string;
 
   @Input() disabled: boolean;
 
   @Input() readonly: boolean;
-
-  @Input() helpId: string;
 
   @ViewChild('markdownEditor', {static: true})
   markdownEditorElmRef: ElementRef;
@@ -103,12 +101,6 @@ export class MarkdownEditorComponent implements OnInit, ControlValueAccessor, On
         }
       );
 
-    }
-  }
-
-  ngOnDestroy(): void {
-    if (this.markdownEditor) {
-      this.markdownEditor.destroy();
     }
   }
 

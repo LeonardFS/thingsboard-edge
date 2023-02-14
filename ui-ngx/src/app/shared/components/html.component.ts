@@ -147,9 +147,6 @@ export class HtmlComponent implements OnInit, OnDestroy, ControlValueAccessor, V
     if (this.editorResize$) {
       this.editorResize$.disconnect();
     }
-    if (this.htmlEditor) {
-      this.htmlEditor.destroy();
-    }
   }
 
   private onAceEditorResize() {

@@ -33,7 +33,6 @@ import org.thingsboard.rule.engine.api.TbNodeConfiguration;
 import org.thingsboard.rule.engine.api.TbNodeException;
 import org.thingsboard.server.common.data.id.RuleChainId;
 import org.thingsboard.server.common.data.id.RuleNodeId;
-import org.thingsboard.server.common.data.script.ScriptLanguage;
 import org.thingsboard.server.common.msg.TbMsg;
 import org.thingsboard.server.common.msg.TbMsgDataType;
 import org.thingsboard.server.common.msg.TbMsgMetaData;
@@ -56,10 +55,12 @@ public class TbTransformMsgNodeTest {
     @Mock
     private TbContext ctx;
     @Mock
+    private ListeningExecutor executor;
+    @Mock
     private ScriptEngine scriptEngine;
 
     @Test
-    public void metadataCanBeUpdated() throws TbNodeException {
+    public void metadataCanBeUpdated() throws TbNodeException, ScriptException {
         initWithScript();
         TbMsgMetaData metaData = new TbMsgMetaData();
         metaData.putValue("temp", "7");
@@ -79,7 +80,7 @@ public class TbTransformMsgNodeTest {
     }
 
     @Test
-    public void exceptionHandledCorrectly() throws TbNodeException {
+    public void exceptionHandledCorrectly() throws TbNodeException, ScriptException {
         initWithScript();
         TbMsgMetaData metaData = new TbMsgMetaData();
         metaData.putValue("temp", "7");
@@ -96,12 +97,11 @@ public class TbTransformMsgNodeTest {
 
     private void initWithScript() throws TbNodeException {
         TbTransformMsgNodeConfiguration config = new TbTransformMsgNodeConfiguration();
-        config.setScriptLang(ScriptLanguage.JS);
         config.setJsScript("scr");
         ObjectMapper mapper = new ObjectMapper();
         TbNodeConfiguration nodeConfiguration = new TbNodeConfiguration(mapper.valueToTree(config));
 
-        when(ctx.createScriptEngine(ScriptLanguage.JS, "scr")).thenReturn(scriptEngine);
+        when(ctx.createJsScriptEngine("scr")).thenReturn(scriptEngine);
 
         node = new TbTransformMsgNode();
         node.init(ctx, nodeConfiguration);

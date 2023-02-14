@@ -93,4 +93,7 @@ public class TbCheckAlarmStatusNode implements TbNode {
         }
     }
 
+    @Override
+    public void destroy() {
+    }
 }

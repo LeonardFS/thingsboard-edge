@@ -15,13 +15,13 @@
  */
 package org.thingsboard.server.service.edge.rpc.processor;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.thingsboard.server.common.data.EdgeUtils;
+import org.thingsboard.server.common.data.edge.Edge;
 import org.thingsboard.server.common.data.edge.EdgeEvent;
+import org.thingsboard.server.common.data.edge.EdgeEventActionType;
 import org.thingsboard.server.common.data.id.RuleChainId;
-import org.thingsboard.server.common.data.id.TenantId;
 import org.thingsboard.server.common.data.rule.RuleChain;
 import org.thingsboard.server.common.data.rule.RuleChainMetaData;
 import org.thingsboard.server.gen.edge.v1.DownlinkMsg;
@@ -29,34 +29,24 @@ import org.thingsboard.server.gen.edge.v1.EdgeVersion;
 import org.thingsboard.server.gen.edge.v1.RuleChainMetadataUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.RuleChainUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.UpdateMsgType;
-import org.thingsboard.server.gen.transport.TransportProtos;
 import org.thingsboard.server.queue.util.TbCoreComponent;
-
-import static org.thingsboard.server.service.edge.DefaultEdgeNotificationService.EDGE_IS_ROOT_BODY_KEY;
 
 @Component
 @Slf4j
 @TbCoreComponent
 public class RuleChainEdgeProcessor extends BaseEdgeProcessor {
 
-    public DownlinkMsg convertRuleChainEventToDownlink(EdgeEvent edgeEvent) {
+    public DownlinkMsg processRuleChainToEdge(Edge edge, EdgeEvent edgeEvent, UpdateMsgType msgType, EdgeEventActionType action) {
         RuleChainId ruleChainId = new RuleChainId(edgeEvent.getEntityId());
         DownlinkMsg downlinkMsg = null;
-        switch (edgeEvent.getAction()) {
+        switch (action) {
             case ADDED:
             case UPDATED:
             case ASSIGNED_TO_EDGE:
                 RuleChain ruleChain = ruleChainService.findRuleChainById(edgeEvent.getTenantId(), ruleChainId);
                 if (ruleChain != null) {
-                    boolean isRoot = false;
-                    if (edgeEvent.getBody() != null && edgeEvent.getBody().get(EDGE_IS_ROOT_BODY_KEY) != null) {
-                        try {
-                            isRoot = Boolean.parseBoolean(edgeEvent.getBody().get(EDGE_IS_ROOT_BODY_KEY).asText());
-                        } catch (Exception ignored) {}
-                    }
-                    UpdateMsgType msgType = getUpdateMsgType(edgeEvent.getAction());
                     RuleChainUpdateMsg ruleChainUpdateMsg =
-                            ruleChainMsgConstructor.constructRuleChainUpdatedMsg(msgType, ruleChain, isRoot);
+                            ruleChainMsgConstructor.constructRuleChainUpdatedMsg(edge.getRootRuleChainId(), msgType, ruleChain);
                     downlinkMsg = DownlinkMsg.newBuilder()
                             .setDownlinkMsgId(EdgeUtils.nextPositiveInt())
                             .addRuleChainUpdateMsg(ruleChainUpdateMsg)
@@ -74,13 +64,12 @@ public class RuleChainEdgeProcessor extends BaseEdgeProcessor {
         return downlinkMsg;
     }
 
-    public DownlinkMsg convertRuleChainMetadataEventToDownlink(EdgeEvent edgeEvent, EdgeVersion edgeVersion) {
+    public DownlinkMsg processRuleChainMetadataToEdge(EdgeEvent edgeEvent, UpdateMsgType msgType, EdgeVersion edgeVersion) {
         RuleChainId ruleChainId = new RuleChainId(edgeEvent.getEntityId());
         RuleChain ruleChain = ruleChainService.findRuleChainById(edgeEvent.getTenantId(), ruleChainId);
         DownlinkMsg downlinkMsg = null;
         if (ruleChain != null) {
             RuleChainMetaData ruleChainMetaData = ruleChainService.loadRuleChainMetaData(edgeEvent.getTenantId(), ruleChainId);
-            UpdateMsgType msgType = getUpdateMsgType(edgeEvent.getAction());
             RuleChainMetadataUpdateMsg ruleChainMetadataUpdateMsg =
                     ruleChainMsgConstructor.constructRuleChainMetadataUpdatedMsg(edgeEvent.getTenantId(), msgType, ruleChainMetaData, edgeVersion);
             if (ruleChainMetadataUpdateMsg != null) {
@@ -91,9 +80,5 @@ public class RuleChainEdgeProcessor extends BaseEdgeProcessor {
             }
         }
         return downlinkMsg;
-    }
-
-    public ListenableFuture<Void> processRuleChainNotification(TenantId tenantId, TransportProtos.EdgeNotificationMsgProto edgeNotificationMsg) {
-        return processEntityNotification(tenantId, edgeNotificationMsg);
     }
 }

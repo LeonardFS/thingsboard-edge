@@ -26,12 +26,19 @@ import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.UUID;
 
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.fail;
+
 @RunWith(ClasspathSuite.class)
-@ClasspathSuite.ClassnameFilters({"org.thingsboard.server.msa.edge.*Test"})
+@ClasspathSuite.ClassnameFilters({"org.thingsboard.server.msa.EdgeClientTest"})
 @Slf4j
 public class ContainerTestSuite {
 
@@ -47,7 +54,7 @@ public class ContainerTestSuite {
         HashMap<String, String> env = new HashMap<>();
         env.put("EDGE_DOCKER_REPO", "thingsboard");
         env.put("TB_EDGE_DOCKER_NAME", "tb-edge");
-        env.put("TB_EDGE_VERSION", "3.4.3EDGE-SNAPSHOT");
+        env.put("TB_EDGE_VERSION", "3.4.1EDGE");
         env.put("CLOUD_ROUTING_KEY", "280629c7-f853-ee3d-01c0-fffbb6f2ef38");
         env.put("CLOUD_ROUTING_SECRET", "g9ta4soeylw6smqkky8g");
         env.put("CLOUD_RPC_HOST", "tb-monolith");
@@ -79,7 +86,6 @@ public class ContainerTestSuite {
                         new File("./../../docker-edge/docker-compose.postgres.yml"),
                         new File("./../../docker-edge/docker-compose.postgres.volumes.yml"))
                         .withPull(false)
-                        .withOptions("--compatibility")
                         .withLocalCompose(true)
                         .withTailChildContainers(!skipTailChildContainers)
                         .withEnv(installTb.getEnv())

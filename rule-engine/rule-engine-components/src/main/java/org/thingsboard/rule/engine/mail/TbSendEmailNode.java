@@ -107,6 +107,10 @@ public class TbSendEmailNode implements TbNode {
         }
     }
 
+    @Override
+    public void destroy() {
+    }
+
     private JavaMailSenderImpl createMailSender() {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         mailSender.setHost(this.config.getSmtpHost());

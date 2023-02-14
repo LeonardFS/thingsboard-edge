@@ -27,15 +27,15 @@ import { HasUUID } from '@shared/models/id/has-uuid';
 
 export interface EdgeSettings {
   edgeId: string;
-  tenantId: string;
+  tenantId: string
   name: string;
   type: string;
   routingKey: string;
 }
 
 export interface CloudEvent extends BaseData<CloudEventId> {
-  action: string;
-  type: CloudEventType;
+  cloudEventAction: string;
+  cloudEventType: CloudEventType;
   entityBody: any;
   entityId: EntityId;
   tenantId: TenantId;
@@ -50,20 +50,20 @@ export class CloudEventId implements HasUUID {
 }
 
 export enum CloudEventType {
-  DASHBOARD = 'DASHBOARD',
-  ASSET = 'ASSET',
-  DEVICE = 'DEVICE',
-  DEVICE_PROFILE = 'DEVICE_PROFILE',
-  ENTITY_VIEW = 'ENTITY_VIEW',
-  ALARM = 'ALARM',
-  RULE_CHAIN = 'RULE_CHAIN',
-  RULE_CHAIN_METADATA = 'RULE_CHAIN_METADATA',
-  USER = 'USER',
-  CUSTOMER = 'CUSTOMER',
-  RELATION = 'RELATION',
-  EDGE = 'EDGE',
-  WIDGETS_BUNDLE = 'WIDGETS_BUNDLE',
-  WIDGET_TYPE = 'WIDGET_TYPE'
+  DASHBOARD = "DASHBOARD",
+  ASSET = "ASSET",
+  DEVICE = "DEVICE",
+  DEVICE_PROFILE = "DEVICE_PROFILE",
+  ENTITY_VIEW = "ENTITY_VIEW",
+  ALARM = "ALARM",
+  RULE_CHAIN = "RULE_CHAIN",
+  RULE_CHAIN_METADATA = "RULE_CHAIN_METADATA",
+  USER = "USER",
+  CUSTOMER = "CUSTOMER",
+  RELATION = "RELATION",
+  EDGE = "EDGE",
+  WIDGETS_BUNDLE = "WIDGETS_BUNDLE",
+  WIDGET_TYPE = "WIDGET_TYPE"
 }
 
 export interface Edge extends BaseData<EdgeId> {
@@ -88,73 +88,73 @@ export interface EdgeSearchQuery extends EntitySearchQuery {
 }
 
 export enum EdgeEventType {
-  DASHBOARD = 'DASHBOARD',
-  ASSET = 'ASSET',
-  DEVICE = 'DEVICE',
-  DEVICE_PROFILE = 'DEVICE_PROFILE',
-  ASSET_PROFILE = 'ASSET_PROFILE',
-  ENTITY_VIEW = 'ENTITY_VIEW',
-  ALARM = 'ALARM',
-  RULE_CHAIN = 'RULE_CHAIN',
-  RULE_CHAIN_METADATA = 'RULE_CHAIN_METADATA',
-  EDGE = 'EDGE',
-  USER = 'USER',
-  CUSTOMER = 'CUSTOMER',
-  RELATION = 'RELATION',
-  TENANT = 'TENANT',
-  WIDGETS_BUNDLE = 'WIDGETS_BUNDLE',
-  WIDGET_TYPE = 'WIDGET_TYPE',
-  ADMIN_SETTINGS = 'ADMIN_SETTINGS'
+  DASHBOARD = "DASHBOARD",
+  ASSET = "ASSET",
+  DEVICE = "DEVICE",
+  DEVICE_PROFILE = "DEVICE_PROFILE",
+  ENTITY_VIEW = "ENTITY_VIEW",
+  ALARM = "ALARM",
+  RULE_CHAIN = "RULE_CHAIN",
+  RULE_CHAIN_METADATA = "RULE_CHAIN_METADATA",
+  EDGE = "EDGE",
+  USER = "USER",
+  CUSTOMER = "CUSTOMER",
+  RELATION = "RELATION",
+  TENANT = "TENANT",
+  WIDGETS_BUNDLE = "WIDGETS_BUNDLE",
+  WIDGET_TYPE = "WIDGET_TYPE",
+  ADMIN_SETTINGS = "ADMIN_SETTINGS"
 }
 
 export enum CloudEventActionType {
-  ADDED = 'ADDED',
-  DELETED = 'DELETED',
-  UPDATED = 'UPDATED',
-  ATTRIBUTES_UPDATED = 'ATTRIBUTES_UPDATED',
-  ATTRIBUTES_DELETED = 'ATTRIBUTES_DELETED',
-  TIMESERIES_DELETED = 'TIMESERIES_DELETED',
-  TIMESERIES_UPDATED = 'TIMESERIES_UPDATED',
-  RPC_CALL = 'RPC_CALL',
-  CREDENTIALS_UPDATED = 'CREDENTIALS_UPDATED',
-  RELATION_ADD_OR_UPDATE = 'RELATION_ADD_OR_UPDATE',
-  RELATION_DELETED = 'RELATION_DELETED',
-  RELATIONS_DELETED = 'RELATIONS_DELETED',
-  ALARM_ACK = 'ALARM_ACK',
-  ALARM_CLEAR = 'ALARM_CLEAR',
-  ATTRIBUTES_REQUEST = 'ATTRIBUTES_REQUEST',
-  RULE_CHAIN_METADATA_REQUEST = 'RULE_CHAIN_METADATA_REQUEST',
-  RELATION_REQUEST = 'RELATION_REQUEST',
-  CREDENTIALS_REQUEST = 'CREDENTIALS_REQUEST',
-  WIDGET_BUNDLE_TYPES_REQUEST = 'WIDGET_BUNDLE_TYPES_REQUEST',
-  ENTITY_VIEW_REQUEST = 'ENTITY_VIEW_REQUEST'
+  ADDED = "ADDED",
+  DELETED = "DELETED",
+  UPDATED = "UPDATED",
+  ATTRIBUTES_UPDATED = "ATTRIBUTES_UPDATED",
+  ATTRIBUTES_DELETED = "ATTRIBUTES_DELETED",
+  TIMESERIES_DELETED = "TIMESERIES_DELETED",
+  TIMESERIES_UPDATED = "TIMESERIES_UPDATED",
+  RPC_CALL = "RPC_CALL",
+  CREDENTIALS_UPDATED = "CREDENTIALS_UPDATED",
+  RELATION_ADD_OR_UPDATE = "RELATION_ADD_OR_UPDATE",
+  RELATION_DELETED = "RELATION_DELETED",
+  RELATIONS_DELETED = "RELATIONS_DELETED",
+  ALARM_ACK = "ALARM_ACK",
+  ALARM_CLEAR = "ALARM_CLEAR",
+  ATTRIBUTES_REQUEST = "ATTRIBUTES_REQUEST",
+  RULE_CHAIN_METADATA_REQUEST = "RULE_CHAIN_METADATA_REQUEST",
+  RELATION_REQUEST = "RELATION_REQUEST",
+  CREDENTIALS_REQUEST = "CREDENTIALS_REQUEST",
+  DEVICE_PROFILE_DEVICES_REQUEST = "DEVICE_PROFILE_DEVICES_REQUEST",
+  WIDGET_BUNDLE_TYPES_REQUEST = "WIDGET_BUNDLE_TYPES_REQUEST",
+  ENTITY_VIEW_REQUEST = "ENTITY_VIEW_REQUEST"
 }
 
 export enum EdgeEventActionType {
-  ADDED = 'ADDED',
-  DELETED = 'DELETED',
-  UPDATED = 'UPDATED',
-  POST_ATTRIBUTES = 'POST_ATTRIBUTES',
-  ATTRIBUTES_UPDATED = 'ATTRIBUTES_UPDATED',
-  ATTRIBUTES_DELETED = 'ATTRIBUTES_DELETED',
-  TIMESERIES_UPDATED = 'TIMESERIES_UPDATED',
-  CREDENTIALS_UPDATED = 'CREDENTIALS_UPDATED',
-  ASSIGNED_TO_CUSTOMER = 'ASSIGNED_TO_CUSTOMER',
-  UNASSIGNED_FROM_CUSTOMER = 'UNASSIGNED_FROM_CUSTOMER',
-  RELATION_ADD_OR_UPDATE = 'RELATION_ADD_OR_UPDATE',
-  RELATION_DELETED = 'RELATION_DELETED',
-  RPC_CALL = 'RPC_CALL',
-  ALARM_ACK = 'ALARM_ACK',
-  ALARM_CLEAR = 'ALARM_CLEAR',
-  ASSIGNED_TO_EDGE = 'ASSIGNED_TO_EDGE',
-  UNASSIGNED_FROM_EDGE = 'UNASSIGNED_FROM_EDGE',
-  CREDENTIALS_REQUEST = 'CREDENTIALS_REQUEST',
-  ENTITY_MERGE_REQUEST = 'ENTITY_MERGE_REQUEST'
+  ADDED = "ADDED",
+  DELETED = "DELETED",
+  UPDATED = "UPDATED",
+  POST_ATTRIBUTES = "POST_ATTRIBUTES",
+  ATTRIBUTES_UPDATED = "ATTRIBUTES_UPDATED",
+  ATTRIBUTES_DELETED = "ATTRIBUTES_DELETED",
+  TIMESERIES_UPDATED = "TIMESERIES_UPDATED",
+  CREDENTIALS_UPDATED = "CREDENTIALS_UPDATED",
+  ASSIGNED_TO_CUSTOMER = "ASSIGNED_TO_CUSTOMER",
+  UNASSIGNED_FROM_CUSTOMER = "UNASSIGNED_FROM_CUSTOMER",
+  RELATION_ADD_OR_UPDATE = "RELATION_ADD_OR_UPDATE",
+  RELATION_DELETED = "RELATION_DELETED",
+  RPC_CALL = "RPC_CALL",
+  ALARM_ACK = "ALARM_ACK",
+  ALARM_CLEAR = "ALARM_CLEAR",
+  ASSIGNED_TO_EDGE = "ASSIGNED_TO_EDGE",
+  UNASSIGNED_FROM_EDGE = "UNASSIGNED_FROM_EDGE",
+  CREDENTIALS_REQUEST = "CREDENTIALS_REQUEST",
+  ENTITY_MERGE_REQUEST = "ENTITY_MERGE_REQUEST"
 }
 
 export enum EdgeEventStatus {
-  DEPLOYED = 'DEPLOYED',
-  PENDING = 'PENDING'
+  DEPLOYED = "DEPLOYED",
+  PENDING = "PENDING"
 }
 
 export const cloudEventTypeTranslations = new Map<CloudEventType, string>(
@@ -195,6 +195,7 @@ export const cloudEventActionTypeTranslations = new Map<string, string>(
     [CloudEventActionType.RULE_CHAIN_METADATA_REQUEST, 'cloud-event.cloud-event-action-rule-chain-metadata-request'],
     [CloudEventActionType.RELATION_REQUEST, 'cloud-event.cloud-event-action-relation-request'],
     [CloudEventActionType.CREDENTIALS_REQUEST, 'cloud-event.cloud-event-action-credentials-request'],
+    [CloudEventActionType.DEVICE_PROFILE_DEVICES_REQUEST, 'cloud-event.cloud-event-action-device-profile-devices-request'],
     [CloudEventActionType.WIDGET_BUNDLE_TYPES_REQUEST, 'cloud-event.cloud-event-action-widget-bundle-types-request'],
     [CloudEventActionType.ENTITY_VIEW_REQUEST, 'cloud-event.cloud-event-action-entity-view-request']
   ]
@@ -206,7 +207,6 @@ export const edgeEventTypeTranslations = new Map<EdgeEventType, string>(
     [EdgeEventType.ASSET, 'edge-event.type-asset'],
     [EdgeEventType.DEVICE, 'edge-event.type-device'],
     [EdgeEventType.DEVICE_PROFILE, 'edge-event.type-device-profile'],
-    [EdgeEventType.ASSET_PROFILE, 'edge-event.type-asset-profile'],
     [EdgeEventType.ENTITY_VIEW, 'edge-event.type-entity-view'],
     [EdgeEventType.ALARM, 'edge-event.type-alarm'],
     [EdgeEventType.RULE_CHAIN, 'edge-event.type-rule-chain'],
@@ -260,6 +260,12 @@ export const edgeEventStatusColor = new Map<EdgeEventStatus, string>(
     [EdgeEventStatus.PENDING, '#9e9e9e']
   ]
 );
+
+export interface EdgeEventBody extends BaseEventBody {
+  type: string;
+  action: string;
+  entityId: string;
+}
 
 export interface EdgeEvent extends BaseData<EventId> {
   tenantId: TenantId;

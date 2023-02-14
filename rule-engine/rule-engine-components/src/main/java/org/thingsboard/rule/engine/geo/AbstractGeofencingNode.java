@@ -148,4 +148,9 @@ public abstract class AbstractGeofencingNode<T extends TbGpsGeofencingFilterNode
         return value;
     }
 
+    @Override
+    public void destroy() {
+
+    }
+
 }

@@ -82,7 +82,6 @@ import org.thingsboard.server.common.data.tenant.profile.DefaultTenantProfileCon
 import org.thingsboard.server.common.data.tenant.profile.TenantProfileData;
 import org.thingsboard.server.common.data.tenant.profile.TenantProfileQueueConfiguration;
 import org.thingsboard.server.common.data.widget.WidgetsBundle;
-import org.thingsboard.server.service.security.auth.jwt.settings.JwtSettingsService;
 import org.thingsboard.server.dao.attributes.AttributesService;
 import org.thingsboard.server.dao.customer.CustomerService;
 import org.thingsboard.server.dao.device.DeviceCredentialsService;
@@ -167,9 +166,6 @@ public class DefaultSystemDataLoaderService implements SystemDataLoaderService {
     @Lazy
     @Autowired
     private QueueService queueService;
-
-    @Autowired
-    private JwtSettingsService jwtSettingsService;
 
     @Bean
     protected BCryptPasswordEncoder passwordEncoder() {
@@ -265,16 +261,6 @@ public class DefaultSystemDataLoaderService implements SystemDataLoaderService {
         node.put("showChangePassword", false);
         mailSettings.setJsonValue(node);
         adminSettingsService.saveAdminSettings(TenantId.SYS_TENANT_ID, mailSettings);
-    }
-
-    @Override
-    public void createRandomJwtSettings() throws Exception {
-        jwtSettingsService.createRandomJwtSettings();
-    }
-
-    @Override
-    public void saveLegacyYmlSettings() throws Exception {
-        jwtSettingsService.saveLegacyYmlSettings();
     }
 
     @Override
@@ -672,5 +658,4 @@ public class DefaultSystemDataLoaderService implements SystemDataLoaderService {
             queueService.saveQueue(sequentialByOriginatorQueue);
         }
     }
-
 }

@@ -28,7 +28,6 @@ import org.thingsboard.edge.rpc.EdgeGrpcClient;
 import org.thingsboard.edge.rpc.EdgeRpcClient;
 import org.thingsboard.server.gen.edge.v1.AdminSettingsUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.AlarmUpdateMsg;
-import org.thingsboard.server.gen.edge.v1.AssetProfileUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.AssetUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.CustomerUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.DashboardUpdateMsg;
@@ -106,7 +105,6 @@ public class EdgeImitator {
         this.routingSecret = routingSecret;
         setEdgeCredentials("rpcHost", host);
         setEdgeCredentials("rpcPort", port);
-        setEdgeCredentials("timeoutSecs", 3);
         setEdgeCredentials("keepAliveTimeSec", 300);
     }
 
@@ -152,18 +150,22 @@ public class EdgeImitator {
         Futures.addCallback(future, new FutureCallback<>() {
             @Override
             public void onSuccess(@Nullable List<Void> result) {
-                DownlinkResponseMsg downlinkResponseMsg = DownlinkResponseMsg.newBuilder()
-                        .setDownlinkMsgId(downlinkMsg.getDownlinkMsgId())
-                        .setSuccess(true).build();
-                edgeRpcClient.sendDownlinkResponseMsg(downlinkResponseMsg);
+                if (connected) {
+                    DownlinkResponseMsg downlinkResponseMsg = DownlinkResponseMsg.newBuilder()
+                            .setDownlinkMsgId(downlinkMsg.getDownlinkMsgId())
+                            .setSuccess(true).build();
+                    edgeRpcClient.sendDownlinkResponseMsg(downlinkResponseMsg);
+                }
             }
 
             @Override
             public void onFailure(Throwable t) {
-                DownlinkResponseMsg downlinkResponseMsg = DownlinkResponseMsg.newBuilder()
-                        .setDownlinkMsgId(downlinkMsg.getDownlinkMsgId())
-                        .setSuccess(false).setErrorMsg(t.getMessage()).build();
-                edgeRpcClient.sendDownlinkResponseMsg(downlinkResponseMsg);
+                if (connected) {
+                    DownlinkResponseMsg downlinkResponseMsg = DownlinkResponseMsg.newBuilder()
+                            .setDownlinkMsgId(downlinkMsg.getDownlinkMsgId())
+                            .setSuccess(false).setErrorMsg(t.getMessage()).build();
+                    edgeRpcClient.sendDownlinkResponseMsg(downlinkResponseMsg);
+                }
             }
         }, MoreExecutors.directExecutor());
     }
@@ -192,11 +194,6 @@ public class EdgeImitator {
         if (downlinkMsg.getDeviceCredentialsUpdateMsgCount() > 0) {
             for (DeviceCredentialsUpdateMsg deviceCredentialsUpdateMsg : downlinkMsg.getDeviceCredentialsUpdateMsgList()) {
                 result.add(saveDownlinkMsg(deviceCredentialsUpdateMsg));
-            }
-        }
-        if (downlinkMsg.getAssetProfileUpdateMsgCount() > 0) {
-            for (AssetProfileUpdateMsg assetProfileUpdateMsg : downlinkMsg.getAssetProfileUpdateMsgList()) {
-                result.add(saveDownlinkMsg(assetProfileUpdateMsg));
             }
         }
         if (downlinkMsg.getAssetUpdateMsgCount() > 0) {
@@ -292,10 +289,6 @@ public class EdgeImitator {
                 result.add(saveDownlinkMsg(queueUpdateMsg));
             }
         }
-        if (downlinkMsg.hasEdgeConfiguration()) {
-            result.add(saveDownlinkMsg(downlinkMsg.getEdgeConfiguration()));
-        }
-
         return Futures.allAsList(result);
     }
 
@@ -365,7 +358,11 @@ public class EdgeImitator {
     }
 
     public AbstractMessage getLatestMessage() {
-        return downlinkMsgs.get(downlinkMsgs.size() - 1);
+        return getMessageFromTail(1);
+    }
+
+    public AbstractMessage getMessageFromTail(int offset) {
+        return downlinkMsgs.get(downlinkMsgs.size() - offset);
     }
 
     public void ignoreType(Class<? extends AbstractMessage> type) {

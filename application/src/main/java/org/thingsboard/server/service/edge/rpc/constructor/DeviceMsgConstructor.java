@@ -16,11 +16,11 @@
 package org.thingsboard.server.service.edge.rpc.constructor;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.protobuf.ByteString;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
 import org.thingsboard.common.util.JacksonUtil;
 import org.thingsboard.server.common.data.Device;
+import org.thingsboard.server.common.data.id.CustomerId;
 import org.thingsboard.server.common.data.id.DeviceId;
 import org.thingsboard.server.common.data.security.DeviceCredentials;
 import org.thingsboard.server.gen.edge.v1.DeviceCredentialsUpdateMsg;
@@ -29,7 +29,6 @@ import org.thingsboard.server.gen.edge.v1.DeviceUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.RpcRequestMsg;
 import org.thingsboard.server.gen.edge.v1.RpcResponseMsg;
 import org.thingsboard.server.gen.edge.v1.UpdateMsgType;
-import org.thingsboard.server.queue.util.DataDecodingEncodingService;
 import org.thingsboard.server.queue.util.TbCoreComponent;
 
 import java.util.UUID;
@@ -38,14 +37,13 @@ import java.util.UUID;
 @TbCoreComponent
 public class DeviceMsgConstructor {
 
-    @Autowired
-    private DataDecodingEncodingService dataDecodingEncodingService;
+    protected static final ObjectMapper mapper = new ObjectMapper();
 
     public DeviceUpdateMsg constructDeviceUpdatedMsg(UpdateMsgType msgType, Device device) {
-        return constructDeviceUpdatedMsg(msgType, device, null);
+        return constructDeviceUpdatedMsg(msgType, device, null, null);
     }
 
-    public DeviceUpdateMsg constructDeviceUpdatedMsg(UpdateMsgType msgType, Device device, String conflictName) {
+    public DeviceUpdateMsg constructDeviceUpdatedMsg(UpdateMsgType msgType, Device device, CustomerId customerId, String conflictName) {
         DeviceUpdateMsg.Builder builder = DeviceUpdateMsg.newBuilder()
                 .setMsgType(msgType)
                 .setIdMSB(device.getId().getId().getMostSignificantBits())
@@ -55,9 +53,9 @@ public class DeviceMsgConstructor {
         if (device.getLabel() != null) {
             builder.setLabel(device.getLabel());
         }
-        if (device.getCustomerId() != null) {
-            builder.setCustomerIdMSB(device.getCustomerId().getId().getMostSignificantBits());
-            builder.setCustomerIdLSB(device.getCustomerId().getId().getLeastSignificantBits());
+        if (customerId != null) {
+            builder.setCustomerIdMSB(customerId.getId().getMostSignificantBits());
+            builder.setCustomerIdLSB(customerId.getId().getLeastSignificantBits());
         }
         if (device.getDeviceProfileId() != null) {
             builder.setDeviceProfileIdMSB(device.getDeviceProfileId().getId().getMostSignificantBits());
@@ -72,9 +70,6 @@ public class DeviceMsgConstructor {
         }
         if (conflictName != null) {
             builder.setConflictName(conflictName);
-        }
-        if (device.getDeviceData() != null) {
-            builder.setDeviceDataBytes(ByteString.copyFrom(dataDecodingEncodingService.encode(device.getDeviceData())));
         }
         return builder.build();
     }
@@ -101,55 +96,45 @@ public class DeviceMsgConstructor {
     }
 
     public DeviceRpcCallMsg constructDeviceRpcCallMsg(UUID deviceId, JsonNode body) {
-        DeviceRpcCallMsg.Builder builder = constructDeviceRpcMsg(deviceId, body);
-        if (body.has("error") || body.has("response")) {
-            RpcResponseMsg.Builder responseBuilder = RpcResponseMsg.newBuilder();
-            if (body.has("error")) {
-                responseBuilder.setError(body.get("error").asText());
-            } else {
-                responseBuilder.setResponse(body.get("response").asText());
-            }
-            builder.setResponseMsg(responseBuilder.build());
-        } else {
-            RpcRequestMsg.Builder requestBuilder = RpcRequestMsg.newBuilder();
-            requestBuilder.setMethod(body.get("method").asText());
-            requestBuilder.setParams(body.get("params").asText());
-            builder.setRequestMsg(requestBuilder.build());
-        }
-        return builder.build();
-    }
+        int requestId = body.get("requestId").asInt();
+        boolean oneway = body.get("oneway").asBoolean();
+        UUID requestUUID = UUID.fromString(body.get("requestUUID").asText());
+        long expirationTime = body.get("expirationTime").asLong();
+        String method = body.get("method").asText();
+        String params = body.get("params").asText();
 
-    private DeviceRpcCallMsg.Builder constructDeviceRpcMsg(UUID deviceId, JsonNode body) {
+        RpcRequestMsg.Builder requestBuilder = RpcRequestMsg.newBuilder();
+        requestBuilder.setMethod(method);
+        requestBuilder.setParams(params);
         DeviceRpcCallMsg.Builder builder = DeviceRpcCallMsg.newBuilder()
                 .setDeviceIdMSB(deviceId.getMostSignificantBits())
                 .setDeviceIdLSB(deviceId.getLeastSignificantBits())
-                .setRequestId(body.get("requestId").asInt());
-        if (body.get("oneway") != null) {
-            builder.setOneway(body.get("oneway").asBoolean());
+                .setRequestUuidMSB(requestUUID.getMostSignificantBits())
+                .setRequestUuidLSB(requestUUID.getLeastSignificantBits())
+                .setRequestId(requestId)
+                .setExpirationTime(expirationTime)
+                .setOneway(oneway)
+                .setRequestMsg(requestBuilder.build());
+        return builder.build();
+    }
+
+    public DeviceRpcCallMsg constructDeviceRpcResponseMsg(DeviceId deviceId, JsonNode body) {
+        RpcResponseMsg.Builder responseBuilder = RpcResponseMsg.newBuilder();
+        if (body.has("error")) {
+            responseBuilder.setError(body.get("error").asText());
+        } else {
+            responseBuilder.setResponse(body.get("response").asText());
         }
-        if (body.get("requestUUID") != null) {
-            UUID requestUUID = UUID.fromString(body.get("requestUUID").asText());
-            builder.setRequestUuidMSB(requestUUID.getMostSignificantBits())
-                    .setRequestUuidLSB(requestUUID.getLeastSignificantBits());
-        }
-        if (body.get("expirationTime") != null) {
-            builder.setExpirationTime(body.get("expirationTime").asLong());
-        }
-        if (body.get("persisted") != null) {
-            builder.setPersisted(body.get("persisted").asBoolean());
-        }
-        if (body.get("retries") != null) {
-            builder.setRetries(body.get("retries").asInt());
-        }
-        if (body.get("additionalInfo") != null) {
-            builder.setAdditionalInfo(JacksonUtil.toString(body.get("additionalInfo")));
-        }
-        if (body.get("serviceId") != null) {
-            builder.setServiceId(body.get("serviceId").asText());
-        }
-        if (body.get("sessionId") != null) {
-            builder.setSessionId(body.get("sessionId").asText());
-        }
-        return builder;
+        UUID requestUUID = UUID.fromString(body.get("requestUUID").asText());
+        DeviceRpcCallMsg.Builder builder = DeviceRpcCallMsg.newBuilder()
+                .setDeviceIdMSB(deviceId.getId().getMostSignificantBits())
+                .setDeviceIdLSB(deviceId.getId().getLeastSignificantBits())
+                .setRequestUuidMSB(requestUUID.getMostSignificantBits())
+                .setRequestUuidLSB(requestUUID.getLeastSignificantBits())
+                .setExpirationTime(body.get("expirationTime").asLong())
+                .setRequestId(body.get("requestId").asInt())
+                .setOneway(body.get("oneway").asBoolean())
+                .setResponseMsg(responseBuilder.build());
+        return builder.build();
     }
 }

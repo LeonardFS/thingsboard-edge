@@ -117,7 +117,7 @@ export class ResourcesLibraryTableConfigResolver implements Resolve<EntityTableC
     this.config.entitySelectionEnabled = (resource) => this.isResourceEditable(resource, authUser.authority);
     this.config.detailsReadonly = (resource) => !this.isResourceEditable(resource, authUser.authority);
 
-    // @voba - edge read-only
+    // edge read-only
     this.config.detailsReadonly = () => true;
     this.config.deleteEnabled = () => false;
     this.config.addEnabled = false;

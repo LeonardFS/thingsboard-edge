@@ -23,19 +23,21 @@ import org.springframework.stereotype.Component;
 import org.thingsboard.common.util.JacksonUtil;
 import org.thingsboard.server.common.data.asset.Asset;
 import org.thingsboard.server.common.data.id.AssetId;
-import org.thingsboard.server.common.data.id.AssetProfileId;
 import org.thingsboard.server.common.data.id.CustomerId;
 import org.thingsboard.server.common.data.id.TenantId;
 import org.thingsboard.server.gen.edge.v1.AssetUpdateMsg;
 
 import java.util.UUID;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Component
 @Slf4j
 public class AssetCloudProcessor extends BaseCloudProcessor {
 
+    private final Lock assetCreationLock = new ReentrantLock();
+
     public ListenableFuture<Void> processAssetMsgFromCloud(TenantId tenantId,
-                                                           CustomerId edgeCustomerId,
                                                            AssetUpdateMsg assetUpdateMsg,
                                                            Long queueStartTs) {
         AssetId assetId = new AssetId(new UUID(assetUpdateMsg.getIdMSB(), assetUpdateMsg.getIdLSB()));
@@ -55,12 +57,11 @@ public class AssetCloudProcessor extends BaseCloudProcessor {
                     asset.setType(assetUpdateMsg.getType());
                     asset.setLabel(assetUpdateMsg.hasLabel() ? assetUpdateMsg.getLabel() : null);
                     asset.setAdditionalInfo(assetUpdateMsg.hasAdditionalInfo() ? JacksonUtil.toJsonNode(assetUpdateMsg.getAdditionalInfo()) : null);
-                    asset.setCustomerId(safeGetCustomerId(assetUpdateMsg.getCustomerIdMSB(), assetUpdateMsg.getCustomerIdLSB(), edgeCustomerId));
-                    if (assetUpdateMsg.hasAssetProfileIdMSB() && assetUpdateMsg.hasAssetProfileIdLSB()) {
-                        AssetProfileId assetProfileId = new AssetProfileId(
-                                new UUID(assetUpdateMsg.getAssetProfileIdMSB(),
-                                        assetUpdateMsg.getAssetProfileIdLSB()));
-                        asset.setAssetProfileId(assetProfileId);
+                    if (assetUpdateMsg.hasCustomerIdMSB() && assetUpdateMsg.hasCustomerIdLSB()) {
+                        CustomerId customerId = new CustomerId(new UUID(assetUpdateMsg.getCustomerIdMSB(), assetUpdateMsg.getCustomerIdLSB()));
+                        asset.setCustomerId(customerId);
+                    } else {
+                        asset.setCustomerId(null);
                     }
                     assetService.saveAsset(asset, false);
                 } finally {

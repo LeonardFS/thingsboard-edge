@@ -47,7 +47,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -220,14 +219,12 @@ public class DefaultGitRepositoryService implements GitRepositoryService {
 
     @Override
     public void testRepository(TenantId tenantId, RepositorySettings settings) throws Exception {
-        Path testDirectory = Path.of(repositoriesFolder, "repo-test-" + UUID.randomUUID());
-        GitRepository.test(settings, testDirectory.toFile());
+        Path repositoryDirectory = Path.of(repositoriesFolder, tenantId.getId().toString());
+        GitRepository.test(settings, repositoryDirectory.toFile());
     }
 
     @Override
     public void initRepository(TenantId tenantId, RepositorySettings settings) throws Exception {
-        testRepository(tenantId, settings);
-
         clearRepository(tenantId);
         log.debug("[{}] Init tenant repository started.", tenantId);
         Path repositoryDirectory = Path.of(repositoriesFolder, tenantId.getId().toString());

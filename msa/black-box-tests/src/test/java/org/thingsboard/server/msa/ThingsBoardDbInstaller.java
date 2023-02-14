@@ -16,6 +16,7 @@
 package org.thingsboard.server.msa;
 
 import lombok.extern.slf4j.Slf4j;
+import org.junit.rules.ExternalResource;
 import org.testcontainers.utility.Base58;
 import org.thingsboard.server.common.data.StringUtils;
 
@@ -29,7 +30,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Slf4j
-public class ThingsBoardDbInstaller {
+public class ThingsBoardDbInstaller extends ExternalResource {
 
     final static boolean IS_REDIS_CLUSTER = Boolean.parseBoolean(System.getProperty("blackBoxTests.redisCluster"));
     final static boolean IS_HYBRID_MODE = Boolean.parseBoolean(System.getProperty("blackBoxTests.hybridMode"));
@@ -128,7 +129,8 @@ public class ThingsBoardDbInstaller {
         return env;
     }
 
-    public void createVolumes()  {
+    @Override
+    protected void before() throws Throwable {
         try {
 
             dockerCompose.withCommand("volume create " + postgresDataVolume);
@@ -190,7 +192,8 @@ public class ThingsBoardDbInstaller {
         }
     }
 
-    public void savaLogsAndRemoveVolumes() {
+    @Override
+    protected void after() {
         copyLogs(tbLogVolume, "./target/tb-logs/");
         copyLogs(tbCoapTransportLogVolume, "./target/tb-coap-transport-logs/");
         copyLogs(tbLwm2mTransportLogVolume, "./target/tb-lwm2m-transport-logs/");

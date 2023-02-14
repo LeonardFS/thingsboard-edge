@@ -35,8 +35,6 @@ public interface UserService {
 
 	User saveUser(User user, boolean doValidate);
 
-    User findUserByTenantIdAndEmail(TenantId tenantId, String email);
-
 	User saveUser(User user);
 
 	UserCredentials findUserCredentialsByUserId(TenantId tenantId, UserId userId);

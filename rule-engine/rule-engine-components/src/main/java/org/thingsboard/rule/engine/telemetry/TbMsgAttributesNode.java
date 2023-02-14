@@ -31,11 +31,7 @@ import org.thingsboard.server.common.msg.session.SessionMsgType;
 import org.thingsboard.server.common.transport.adaptor.JsonConverter;
 
 import java.util.ArrayList;
-import java.util.List;
-
-import static org.thingsboard.server.common.data.DataConstants.CLIENT_SCOPE;
-import static org.thingsboard.server.common.data.DataConstants.NOTIFY_DEVICE_METADATA_KEY;
-import static org.thingsboard.server.common.data.DataConstants.SCOPE;
+import java.util.Set;
 
 @Slf4j
 @RuleNode(
@@ -43,10 +39,7 @@ import static org.thingsboard.server.common.data.DataConstants.SCOPE;
         name = "save attributes",
         configClazz = TbMsgAttributesNodeConfiguration.class,
         nodeDescription = "Saves attributes data",
-        nodeDetails = "Saves entity attributes based on configurable scope parameter. Expects messages with 'POST_ATTRIBUTES_REQUEST' message type. " +
-                      "If upsert(update/insert) operation is completed successfully rule node will send the incoming message via <b>Success</b> chain, otherwise, <b>Failure</b> chain is used. " +
-                      "Additionally if checkbox <b>Send attributes updated notification</b> is set to true, rule node will put the \"Attributes Updated\" " +
-                      "event for <b>SHARED_SCOPE</b> and <b>SERVER_SCOPE</b> attributes updates to the corresponding rule engine queue.",
+        nodeDetails = "Saves entity attributes based on configurable scope parameter. Expects messages with 'POST_ATTRIBUTES_REQUEST' message type",
         uiResources = {"static/rulenode/rulenode-core-config.js"},
         configDirective = "tbActionNodeAttributesConfig",
         icon = "file_upload"
@@ -70,38 +63,20 @@ public class TbMsgAttributesNode implements TbNode {
             return;
         }
         String src = msg.getData();
-        List<AttributeKvEntry> attributes = new ArrayList<>(JsonConverter.convertToAttributes(JsonParser.parseString(src)));
-        if (attributes.isEmpty()) {
-            ctx.tellSuccess(msg);
-            return;
-        }
-        String scope = getScope(msg.getMetaData().getValue(SCOPE));
-        boolean sendAttributesUpdateNotification = checkSendNotification(scope);
+        Set<AttributeKvEntry> attributes = JsonConverter.convertToAttributes(new JsonParser().parse(src));
+        String notifyDeviceStr = msg.getMetaData().getValue("notifyDevice");
         ctx.getTelemetryService().saveAndNotify(
                 ctx.getTenantId(),
                 msg.getOriginator(),
-                scope,
-                attributes,
-                checkNotifyDevice(msg.getMetaData().getValue(NOTIFY_DEVICE_METADATA_KEY)),
-                sendAttributesUpdateNotification ?
-                        new AttributesUpdateNodeCallback(ctx, msg, scope, attributes) :
-                        new TelemetryNodeCallback(ctx, msg)
+                config.getScope(),
+                new ArrayList<>(attributes),
+                config.getNotifyDevice() || StringUtils.isEmpty(notifyDeviceStr) || Boolean.parseBoolean(notifyDeviceStr),
+                new TelemetryNodeCallback(ctx, msg)
         );
     }
 
-    private boolean checkSendNotification(String scope) {
-        return config.isSendAttributesUpdatedNotification() && !CLIENT_SCOPE.equals(scope);
-    }
-
-    private boolean checkNotifyDevice(String notifyDeviceMdValue) {
-        return config.getNotifyDevice() || StringUtils.isEmpty(notifyDeviceMdValue) || Boolean.parseBoolean(notifyDeviceMdValue);
-    }
-
-    private String getScope(String mdScopeValue) {
-        if (StringUtils.isNotEmpty(mdScopeValue)) {
-            return mdScopeValue;
-        }
-        return config.getScope();
+    @Override
+    public void destroy() {
     }
 
 }

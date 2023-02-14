@@ -23,13 +23,12 @@ import org.springframework.stereotype.Service;
 import org.thingsboard.server.common.data.cloud.CloudEventType;
 import org.thingsboard.server.common.data.edge.EdgeEventActionType;
 import org.thingsboard.server.common.data.edge.EdgeSettings;
-import org.thingsboard.server.common.data.id.CustomerId;
 import org.thingsboard.server.common.data.id.DeviceId;
+import org.thingsboard.server.common.data.id.EdgeId;
 import org.thingsboard.server.common.data.id.TenantId;
 import org.thingsboard.server.dao.cloud.CloudEventService;
 import org.thingsboard.server.gen.edge.v1.AdminSettingsUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.AlarmUpdateMsg;
-import org.thingsboard.server.gen.edge.v1.AssetProfileUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.AssetUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.CustomerUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.DashboardUpdateMsg;
@@ -53,12 +52,10 @@ import org.thingsboard.server.gen.edge.v1.WidgetsBundleUpdateMsg;
 import org.thingsboard.server.service.cloud.rpc.processor.AdminSettingsCloudProcessor;
 import org.thingsboard.server.service.cloud.rpc.processor.AlarmCloudProcessor;
 import org.thingsboard.server.service.cloud.rpc.processor.AssetCloudProcessor;
-import org.thingsboard.server.service.cloud.rpc.processor.AssetProfileCloudProcessor;
 import org.thingsboard.server.service.cloud.rpc.processor.CustomerCloudProcessor;
 import org.thingsboard.server.service.cloud.rpc.processor.DashboardCloudProcessor;
 import org.thingsboard.server.service.cloud.rpc.processor.DeviceCloudProcessor;
 import org.thingsboard.server.service.cloud.rpc.processor.DeviceProfileCloudProcessor;
-import org.thingsboard.server.service.cloud.rpc.processor.EdgeCloudProcessor;
 import org.thingsboard.server.service.cloud.rpc.processor.EntityViewCloudProcessor;
 import org.thingsboard.server.service.cloud.rpc.processor.OtaPackageCloudProcessor;
 import org.thingsboard.server.service.cloud.rpc.processor.QueueCloudProcessor;
@@ -78,15 +75,12 @@ import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 @Slf4j
-public class DefaultDownlinkMessageService implements DownlinkMessageService {
+public class DefaultDownlinkMessageService extends BaseCloudEventService implements DownlinkMessageService {
 
     private final Lock sequenceDependencyLock = new ReentrantLock();
 
     @Autowired
     private CloudEventService cloudEventService;
-
-    @Autowired
-    private EdgeCloudProcessor edgeCloudProcessor;
 
     @Autowired
     private RuleChainCloudProcessor ruleChainProcessor;
@@ -99,9 +93,6 @@ public class DefaultDownlinkMessageService implements DownlinkMessageService {
 
     @Autowired
     private DeviceProfileCloudProcessor deviceProfileProcessor;
-
-    @Autowired
-    private AssetProfileCloudProcessor assetProfileProcessor;
 
     @Autowired
     private AssetCloudProcessor assetProcessor;
@@ -143,29 +134,24 @@ public class DefaultDownlinkMessageService implements DownlinkMessageService {
     private DbCallbackExecutorService dbCallbackExecutorService;
 
     public ListenableFuture<List<Void>> processDownlinkMsg(TenantId tenantId,
-                                                           CustomerId edgeCustomerId,
                                                            DownlinkMsg downlinkMsg,
                                                            EdgeSettings currentEdgeSettings,
                                                            Long queueStartTs) {
         List<ListenableFuture<Void>> result = new ArrayList<>();
         try {
-            log.debug("[{}] Starting process DownlinkMsg. edgeCustomerId [{}], downlinkMsgId [{}],",
-                    tenantId, edgeCustomerId, downlinkMsg.getDownlinkMsgId());
+            log.debug("Starting process DownlinkMsg {}", downlinkMsg.getDownlinkMsgId());
             log.trace("DownlinkMsg Body {}", downlinkMsg);
             if (downlinkMsg.hasSyncCompletedMsg()) {
                 result.add(updateSyncRequiredState(tenantId, currentEdgeSettings));
             }
-            if (downlinkMsg.hasEdgeConfiguration()) {
-                result.add(edgeCloudProcessor.processEdgeConfigurationMsgFromCloud(tenantId, downlinkMsg.getEdgeConfiguration()));
-            }
             if (downlinkMsg.getEntityDataCount() > 0) {
                 for (EntityDataProto entityData : downlinkMsg.getEntityDataList()) {
-                    result.addAll(telemetryProcessor.processTelemetryFromCloud(tenantId, entityData));
+                    result.addAll(telemetryProcessor.processTelemetryMsgFromCloud(tenantId, entityData));
                 }
             }
             if (downlinkMsg.getDeviceRpcCallMsgCount() > 0) {
                 for (DeviceRpcCallMsg deviceRpcRequestMsg : downlinkMsg.getDeviceRpcCallMsgList()) {
-                    result.add(deviceProcessor.processDeviceRpcCallFromCloud(tenantId, deviceRpcRequestMsg));
+                    result.add(deviceProcessor.processDeviceRpcRequestFromCloud(tenantId, deviceRpcRequestMsg));
                 }
             }
             if (downlinkMsg.getDeviceCredentialsRequestMsgCount() > 0) {
@@ -173,19 +159,14 @@ public class DefaultDownlinkMessageService implements DownlinkMessageService {
                     result.add(processDeviceCredentialsRequestMsg(tenantId, deviceCredentialsRequestMsg));
                 }
             }
+            if (downlinkMsg.getDeviceUpdateMsgCount() > 0) {
+                for (DeviceUpdateMsg deviceUpdateMsg : downlinkMsg.getDeviceUpdateMsgList()) {
+                    result.add(deviceProcessor.processDeviceMsgFromCloud(tenantId, deviceUpdateMsg, queueStartTs));
+                }
+            }
             if (downlinkMsg.getDeviceProfileUpdateMsgCount() > 0) {
                 for (DeviceProfileUpdateMsg deviceProfileUpdateMsg : downlinkMsg.getDeviceProfileUpdateMsgList()) {
                     result.add(deviceProfileProcessor.processDeviceProfileMsgFromCloud(tenantId, deviceProfileUpdateMsg));
-                }
-            }
-            if (downlinkMsg.getDeviceUpdateMsgCount() > 0) {
-                for (DeviceUpdateMsg deviceUpdateMsg : downlinkMsg.getDeviceUpdateMsgList()) {
-                    result.add(deviceProcessor.processDeviceMsgFromCloud(tenantId, edgeCustomerId, deviceUpdateMsg, queueStartTs));
-                }
-            }
-            if (downlinkMsg.getAssetProfileUpdateMsgCount() > 0) {
-                for (AssetProfileUpdateMsg assetProfileUpdateMsg  : downlinkMsg.getAssetProfileUpdateMsgList()) {
-                    result.add(assetProfileProcessor.processAssetProfileMsgFromCloud(tenantId, assetProfileUpdateMsg));
                 }
             }
             if (downlinkMsg.getDeviceCredentialsUpdateMsgCount() > 0) {
@@ -195,17 +176,17 @@ public class DefaultDownlinkMessageService implements DownlinkMessageService {
             }
             if (downlinkMsg.getAssetUpdateMsgCount() > 0) {
                 for (AssetUpdateMsg assetUpdateMsg : downlinkMsg.getAssetUpdateMsgList()) {
-                    result.add(assetProcessor.processAssetMsgFromCloud(tenantId, edgeCustomerId, assetUpdateMsg, queueStartTs));
+                    result.add(assetProcessor.processAssetMsgFromCloud(tenantId, assetUpdateMsg, queueStartTs));
                 }
             }
             if (downlinkMsg.getEntityViewUpdateMsgCount() > 0) {
                 for (EntityViewUpdateMsg entityViewUpdateMsg : downlinkMsg.getEntityViewUpdateMsgList()) {
-                    result.add(entityViewProcessor.processEntityViewMsgFromCloud(tenantId, edgeCustomerId, entityViewUpdateMsg, queueStartTs));
+                    result.add(entityViewProcessor.processEntityViewMsgFromCloud(tenantId, entityViewUpdateMsg, queueStartTs));
                 }
             }
             if (downlinkMsg.getRuleChainUpdateMsgCount() > 0) {
                 for (RuleChainUpdateMsg ruleChainUpdateMsg : downlinkMsg.getRuleChainUpdateMsgList()) {
-                    result.add(ruleChainProcessor.processRuleChainMsgFromCloud(tenantId, ruleChainUpdateMsg, queueStartTs));
+                    result.add(ruleChainProcessor.processRuleChainMsgFromCloud(tenantId, ruleChainUpdateMsg));
                 }
             }
             if (downlinkMsg.getRuleChainMetadataUpdateMsgCount() > 0) {
@@ -215,7 +196,7 @@ public class DefaultDownlinkMessageService implements DownlinkMessageService {
             }
             if (downlinkMsg.getDashboardUpdateMsgCount() > 0) {
                 for (DashboardUpdateMsg dashboardUpdateMsg : downlinkMsg.getDashboardUpdateMsgList()) {
-                    result.add(dashboardProcessor.processDashboardMsgFromCloud(tenantId, edgeCustomerId, dashboardUpdateMsg, queueStartTs));
+                    result.add(dashboardProcessor.processDashboardMsgFromCloud(tenantId, dashboardUpdateMsg, queueStartTs));
                 }
             }
             if (downlinkMsg.getAlarmUpdateMsgCount() > 0) {
@@ -240,7 +221,7 @@ public class DefaultDownlinkMessageService implements DownlinkMessageService {
             }
             if (downlinkMsg.getWidgetsBundleUpdateMsgCount() > 0) {
                 for (WidgetsBundleUpdateMsg widgetsBundleUpdateMsg : downlinkMsg.getWidgetsBundleUpdateMsgList()) {
-                    result.add(widgetsBundleProcessor.processWidgetsBundleMsgFromCloud(tenantId, widgetsBundleUpdateMsg, queueStartTs));
+                    result.add(widgetsBundleProcessor.processWidgetsBundleMsgFromCloud(tenantId, widgetsBundleUpdateMsg));
                 }
             }
             if (downlinkMsg.getWidgetTypeUpdateMsgCount() > 0) {
@@ -252,7 +233,7 @@ public class DefaultDownlinkMessageService implements DownlinkMessageService {
                 for (UserUpdateMsg userUpdateMsg : downlinkMsg.getUserUpdateMsgList()) {
                     sequenceDependencyLock.lock();
                     try {
-                        result.add(userProcessor.processUserMsgFromCloud(tenantId, edgeCustomerId, userUpdateMsg, queueStartTs));
+                        result.add(userProcessor.processUserMsgFromCloud(tenantId, userUpdateMsg, queueStartTs));
                     } finally {
                         sequenceDependencyLock.unlock();
                     }
@@ -293,6 +274,15 @@ public class DefaultDownlinkMessageService implements DownlinkMessageService {
             return Futures.transform(cloudEventService.saveEdgeSettings(tenantId, currentEdgeSettings),
                     result -> {
                         log.debug("Full sync required marked as false");
+
+                        // TODO: @voba fixme - this is not required in 3.4.1 once bug with sessionNewEvents fixed
+                        try {
+                            saveCloudEvent(tenantId, CloudEventType.EDGE,
+                                    EdgeEventActionType.ATTRIBUTES_REQUEST, new EdgeId(UUID.fromString(currentEdgeSettings.getEdgeId())), null).get();
+                        } catch (Exception e) {
+                            log.error("Can't save cloud event", e);
+                        }
+
                         return null;
                     },
                     dbCallbackExecutorService);
@@ -304,7 +294,7 @@ public class DefaultDownlinkMessageService implements DownlinkMessageService {
     private ListenableFuture<Void> processDeviceCredentialsRequestMsg(TenantId tenantId, DeviceCredentialsRequestMsg deviceCredentialsRequestMsg) {
         if (deviceCredentialsRequestMsg.getDeviceIdMSB() != 0 && deviceCredentialsRequestMsg.getDeviceIdLSB() != 0) {
             DeviceId deviceId = new DeviceId(new UUID(deviceCredentialsRequestMsg.getDeviceIdMSB(), deviceCredentialsRequestMsg.getDeviceIdLSB()));
-            return cloudEventService.saveCloudEventAsync(tenantId, CloudEventType.DEVICE, EdgeEventActionType.CREDENTIALS_UPDATED, deviceId, null, 0L);
+            return saveCloudEvent(tenantId, CloudEventType.DEVICE, EdgeEventActionType.CREDENTIALS_UPDATED, deviceId, null);
         } else {
             return Futures.immediateFuture(null);
         }

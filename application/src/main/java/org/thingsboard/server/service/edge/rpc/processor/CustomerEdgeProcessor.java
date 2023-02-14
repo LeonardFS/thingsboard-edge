@@ -46,15 +46,14 @@ import java.util.UUID;
 @TbCoreComponent
 public class CustomerEdgeProcessor extends BaseEdgeProcessor {
 
-    public DownlinkMsg convertCustomerEventToDownlink(EdgeEvent edgeEvent) {
+    public DownlinkMsg processCustomerToEdge(EdgeEvent edgeEvent, UpdateMsgType msgType, EdgeEventActionType action) {
         CustomerId customerId = new CustomerId(edgeEvent.getEntityId());
         DownlinkMsg downlinkMsg = null;
-        switch (edgeEvent.getAction()) {
+        switch (action) {
             case ADDED:
             case UPDATED:
                 Customer customer = customerService.findCustomerById(edgeEvent.getTenantId(), customerId);
                 if (customer != null) {
-                    UpdateMsgType msgType = getUpdateMsgType(edgeEvent.getAction());
                     CustomerUpdateMsg customerUpdateMsg =
                             customerMsgConstructor.constructCustomerUpdatedMsg(msgType, customer);
                     downlinkMsg = DownlinkMsg.newBuilder()
@@ -104,4 +103,5 @@ public class CustomerEdgeProcessor extends BaseEdgeProcessor {
                 return Futures.immediateFuture(null);
         }
     }
+
 }

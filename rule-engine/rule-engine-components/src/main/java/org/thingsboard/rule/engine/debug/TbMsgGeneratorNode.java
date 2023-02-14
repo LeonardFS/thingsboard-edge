@@ -41,7 +41,6 @@ import org.thingsboard.server.common.data.id.EntityViewId;
 import org.thingsboard.server.common.data.id.TenantId;
 import org.thingsboard.server.common.data.id.UserId;
 import org.thingsboard.server.common.data.plugin.ComponentType;
-import org.thingsboard.server.common.data.script.ScriptLanguage;
 import org.thingsboard.server.common.msg.TbMsg;
 import org.thingsboard.server.common.msg.TbMsgMetaData;
 import org.thingsboard.server.common.msg.queue.PartitionChangeMsg;
@@ -71,7 +70,7 @@ public class TbMsgGeneratorNode implements TbNode {
     private static final String TB_MSG_GENERATOR_NODE_MSG = "TbMsgGeneratorNodeMsg";
 
     private TbMsgGeneratorNodeConfiguration config;
-    private ScriptEngine scriptEngine;
+    private ScriptEngine jsEngine;
     private long delay;
     private long lastScheduledTs;
     private int currentMsgCount;
@@ -88,7 +87,6 @@ public class TbMsgGeneratorNode implements TbNode {
         this.currentMsgCount = 0;
         if (!StringUtils.isEmpty(config.getOriginatorId())) {
             originatorId = EntityIdFactory.getByTypeAndUuid(config.getOriginatorType(), config.getOriginatorId());
-            ctx.checkTenantEntity(originatorId);
         } else {
             originatorId = ctx.getSelfId();
         }
@@ -105,8 +103,7 @@ public class TbMsgGeneratorNode implements TbNode {
         log.trace("updateGeneratorState, config {}", config);
         if (ctx.isLocalEntity(originatorId)) {
             if (initialized.compareAndSet(false, true)) {
-                this.scriptEngine = ctx.createScriptEngine(config.getScriptLang(),
-                        ScriptLanguage.TBEL.equals(config.getScriptLang()) ? config.getTbelScript() : config.getJsScript(), "prevMsg", "prevMetadata", "prevMsgType");
+                this.jsEngine = ctx.createJsScriptEngine(config.getJsScript(), "prevMsg", "prevMetadata", "prevMsgType");
                 scheduleTickMsg(ctx);
             }
         } else if (initialized.compareAndSet(true, false)) {
@@ -131,7 +128,7 @@ public class TbMsgGeneratorNode implements TbNode {
                         }
                     },
                     t -> {
-                        log.trace("onMsg onFailure callback, took {}ms, config {}, msg {}", sw.stopAndGetTotalTimeMillis(), config, msg, t);
+                        log.warn("onMsg onFailure callback, took {}ms, config {}, msg {}, exception {}", sw.stopAndGetTotalTimeMillis(), config, msg, t);
                         if (initialized.get() && (config.getMsgCount() == TbMsgGeneratorNodeConfiguration.UNLIMITED_MSG_COUNT || currentMsgCount < config.getMsgCount())) {
                             ctx.tellFailure(msg, t);
                             scheduleTickMsg(ctx);
@@ -195,7 +192,7 @@ public class TbMsgGeneratorNode implements TbNode {
         }
         if (initialized.get()) {
             ctx.logJsEvalRequest();
-            return Futures.transformAsync(scriptEngine.executeGenerateAsync(prevMsg), generated -> {
+            return Futures.transformAsync(jsEngine.executeGenerateAsync(prevMsg), generated -> {
                 log.trace("generate process response, generated {}, config {}", generated, config);
                 ctx.logJsEvalResponse();
                 prevMsg = ctx.newMsg(null, generated.getType(), originatorId, msg.getCustomerId(), generated.getMetaData(), generated.getData());
@@ -210,9 +207,9 @@ public class TbMsgGeneratorNode implements TbNode {
     public void destroy() {
         log.trace("destroy, config {}", config);
         prevMsg = null;
-        if (scriptEngine != null) {
-            scriptEngine.destroy();
-            scriptEngine = null;
+        if (jsEngine != null) {
+            jsEngine.destroy();
+            jsEngine = null;
         }
     }
 }

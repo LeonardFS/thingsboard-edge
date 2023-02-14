@@ -54,4 +54,7 @@ public class TbCheckpointNode implements TbNode {
         ctx.enqueueForTellNext(msg, queueName, TbRelationTypes.SUCCESS, () -> ctx.ack(msg), error -> ctx.tellFailure(msg, error));
     }
 
+    @Override
+    public void destroy() {
+    }
 }

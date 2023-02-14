@@ -47,7 +47,6 @@ public class EntityViewCloudProcessor extends BaseCloudProcessor {
     private final Lock entityViewCreationLock = new ReentrantLock();
 
     public ListenableFuture<Void> processEntityViewMsgFromCloud(TenantId tenantId,
-                                                                CustomerId edgeCustomerId,
                                                                 EntityViewUpdateMsg entityViewUpdateMsg,
                                                                 Long queueStartTs) {
         EntityViewId entityViewId = new EntityViewId(new UUID(entityViewUpdateMsg.getIdMSB(), entityViewUpdateMsg.getIdLSB()));
@@ -77,9 +76,13 @@ public class EntityViewCloudProcessor extends BaseCloudProcessor {
                     entityView.setName(entityViewUpdateMsg.getName());
                     entityView.setType(entityViewUpdateMsg.getType());
                     entityView.setEntityId(entityId);
-                    entityView.setAdditionalInfo(entityViewUpdateMsg.hasAdditionalInfo()
-                            ? JacksonUtil.toJsonNode(entityViewUpdateMsg.getAdditionalInfo()) : null);
-                    entityView.setCustomerId(safeGetCustomerId(entityViewUpdateMsg.getCustomerIdMSB(), entityViewUpdateMsg.getCustomerIdLSB(), edgeCustomerId));
+                    entityView.setAdditionalInfo(entityViewUpdateMsg.hasAdditionalInfo() ? JacksonUtil.toJsonNode(entityViewUpdateMsg.getAdditionalInfo()) : null);
+                    if (entityViewUpdateMsg.hasCustomerIdMSB() && entityViewUpdateMsg.hasCustomerIdLSB()) {
+                        CustomerId customerId = new CustomerId(new UUID(entityViewUpdateMsg.getCustomerIdMSB(), entityViewUpdateMsg.getCustomerIdLSB()));
+                        entityView.setCustomerId(customerId);
+                    } else {
+                        entityView.setCustomerId(null);
+                    }
                     EntityView savedEntityView = entityViewService.saveEntityView(entityView, false);
 
                     tbClusterService.broadcastEntityStateChangeEvent(savedEntityView.getTenantId(), savedEntityView.getId(),
@@ -101,8 +104,8 @@ public class EntityViewCloudProcessor extends BaseCloudProcessor {
         return Futures.transform(requestForAdditionalData(tenantId, entityViewUpdateMsg.getMsgType(), entityViewId, queueStartTs), future -> null, dbCallbackExecutor);
     }
 
-    public UplinkMsg convertEntityViewRequestEventToUplink(CloudEvent cloudEvent) {
-        EntityId entityId = EntityIdFactory.getByCloudEventTypeAndUuid(cloudEvent.getType(), cloudEvent.getEntityId());
+    public UplinkMsg processEntityViewRequestMsgToCloud(CloudEvent cloudEvent) {
+        EntityId entityId = EntityIdFactory.getByCloudEventTypeAndUuid(cloudEvent.getCloudEventType(), cloudEvent.getEntityId());
         EntityViewsRequestMsg entityViewsRequestMsg = EntityViewsRequestMsg.newBuilder()
                 .setEntityIdMSB(entityId.getId().getMostSignificantBits())
                 .setEntityIdLSB(entityId.getId().getLeastSignificantBits())

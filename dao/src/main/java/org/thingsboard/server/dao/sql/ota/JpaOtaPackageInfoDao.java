@@ -30,14 +30,12 @@ import org.thingsboard.server.dao.DaoUtil;
 import org.thingsboard.server.dao.model.sql.OtaPackageInfoEntity;
 import org.thingsboard.server.dao.ota.OtaPackageInfoDao;
 import org.thingsboard.server.dao.sql.JpaAbstractSearchTextDao;
-import org.thingsboard.server.dao.util.SqlDao;
 
 import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
 @Component
-@SqlDao
 public class JpaOtaPackageInfoDao extends JpaAbstractSearchTextDao<OtaPackageInfoEntity, OtaPackageInfo> implements OtaPackageInfoDao {
 
     @Autowired

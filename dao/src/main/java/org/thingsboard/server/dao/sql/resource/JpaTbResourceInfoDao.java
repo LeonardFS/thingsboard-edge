@@ -27,14 +27,12 @@ import org.thingsboard.server.dao.DaoUtil;
 import org.thingsboard.server.dao.model.sql.TbResourceInfoEntity;
 import org.thingsboard.server.dao.resource.TbResourceInfoDao;
 import org.thingsboard.server.dao.sql.JpaAbstractSearchTextDao;
-import org.thingsboard.server.dao.util.SqlDao;
 
 import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
 @Component
-@SqlDao
 public class JpaTbResourceInfoDao extends JpaAbstractSearchTextDao<TbResourceInfoEntity, TbResourceInfo> implements TbResourceInfoDao {
 
     @Autowired

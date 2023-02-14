@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-version: '3.0'
+version: '2.2'
 
 services:
   postgres:
@@ -23,5 +23,5 @@ services:
 
 volumes:
   postgres-db-volume:
-    external:
-      name: ${POSTGRES_DATA_VOLUME}
+    external: true
+    name: ${POSTGRES_DATA_VOLUME}

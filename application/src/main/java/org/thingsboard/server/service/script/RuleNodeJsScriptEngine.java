@@ -17,13 +17,14 @@ package org.thingsboard.server.service.script;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import lombok.extern.slf4j.Slf4j;
-import org.thingsboard.common.util.JacksonUtil;
-import org.thingsboard.script.api.RuleNodeScriptFactory;
-import org.thingsboard.script.api.js.JsInvokeService;
 import org.thingsboard.server.common.data.StringUtils;
+import org.thingsboard.server.common.data.id.CustomerId;
+import org.thingsboard.server.common.data.id.EntityId;
 import org.thingsboard.server.common.data.id.TenantId;
 import org.thingsboard.server.common.msg.TbMsg;
 import org.thingsboard.server.common.msg.TbMsgMetaData;
@@ -35,22 +36,86 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 
 @Slf4j
-public class RuleNodeJsScriptEngine extends RuleNodeScriptEngine<JsInvokeService, JsonNode> {
+public class RuleNodeJsScriptEngine implements org.thingsboard.rule.engine.api.ScriptEngine {
 
-    public RuleNodeJsScriptEngine(TenantId tenantId, JsInvokeService scriptInvokeService, String script, String... argNames) {
-        super(tenantId, scriptInvokeService, script, argNames);
+    private static final ObjectMapper mapper = new ObjectMapper();
+    private final JsInvokeService sandboxService;
+
+    private final UUID scriptId;
+    private final TenantId tenantId;
+    private final EntityId entityId;
+
+    public RuleNodeJsScriptEngine(TenantId tenantId, JsInvokeService sandboxService, EntityId entityId, String script, String... argNames) {
+        this.tenantId = tenantId;
+        this.sandboxService = sandboxService;
+        this.entityId = entityId;
+        try {
+            this.scriptId = this.sandboxService.eval(tenantId, JsScriptType.RULE_NODE_SCRIPT, script, argNames).get();
+        } catch (Exception e) {
+            Throwable t = e;
+            if (e instanceof ExecutionException) {
+                t = e.getCause();
+            }
+            throw new IllegalArgumentException("Can't compile script: " + t.getMessage(), t);
+        }
+    }
+
+    private static String[] prepareArgs(TbMsg msg) {
+        try {
+            String[] args = new String[3];
+            if (msg.getData() != null) {
+                args[0] = msg.getData();
+            } else {
+                args[0] = "";
+            }
+            args[1] = mapper.writeValueAsString(msg.getMetaData().getData());
+            args[2] = msg.getType();
+            return args;
+        } catch (Throwable th) {
+            throw new IllegalArgumentException("Cannot bind js args", th);
+        }
+    }
+
+    private static TbMsg unbindMsg(JsonNode msgData, TbMsg msg) {
+        try {
+            String data = null;
+            Map<String, String> metadata = null;
+            String messageType = null;
+            if (msgData.has(RuleNodeScriptFactory.MSG)) {
+                JsonNode msgPayload = msgData.get(RuleNodeScriptFactory.MSG);
+                data = mapper.writeValueAsString(msgPayload);
+            }
+            if (msgData.has(RuleNodeScriptFactory.METADATA)) {
+                JsonNode msgMetadata = msgData.get(RuleNodeScriptFactory.METADATA);
+                metadata = mapper.convertValue(msgMetadata, new TypeReference<Map<String, String>>() {
+                });
+            }
+            if (msgData.has(RuleNodeScriptFactory.MSG_TYPE)) {
+                messageType = msgData.get(RuleNodeScriptFactory.MSG_TYPE).asText();
+            }
+            String newData = data != null ? data : msg.getData();
+            TbMsgMetaData newMetadata = metadata != null ? new TbMsgMetaData(metadata) : msg.getMetaData().copy();
+            String newMessageType = !StringUtils.isEmpty(messageType) ? messageType : msg.getType();
+            return TbMsg.transformMsg(msg, newMessageType, msg.getOriginator(), newMetadata, newData);
+        } catch (Throwable th) {
+            throw new RuntimeException("Failed to unbind message data from javascript result", th);
+        }
     }
 
     @Override
-    public ListenableFuture<JsonNode> executeJsonAsync(TbMsg msg) {
-        return executeScriptAsync(msg);
+    public ListenableFuture<List<TbMsg>> executeUpdateAsync(TbMsg msg) {
+        ListenableFuture<JsonNode> result = executeScriptAsync(msg);
+        return Futures.transformAsync(result,
+                json -> executeUpdateTransform(msg, json),
+                MoreExecutors.directExecutor());
     }
 
-    @Override
-    protected ListenableFuture<List<TbMsg>> executeUpdateTransform(TbMsg msg, JsonNode json) {
+    ListenableFuture<List<TbMsg>> executeUpdateTransform(TbMsg msg, JsonNode json) {
         if (json.isObject()) {
             return Futures.immediateFuture(Collections.singletonList(unbindMsg(json, msg)));
         } else if (json.isArray()) {
@@ -63,7 +128,13 @@ public class RuleNodeJsScriptEngine extends RuleNodeScriptEngine<JsInvokeService
     }
 
     @Override
-    protected ListenableFuture<TbMsg> executeGenerateTransform(TbMsg prevMsg, JsonNode result) {
+    public ListenableFuture<TbMsg> executeGenerateAsync(TbMsg prevMsg) {
+        return Futures.transformAsync(executeScriptAsync(prevMsg),
+                result -> executeGenerateTransform(prevMsg, result),
+                MoreExecutors.directExecutor());
+    }
+
+    ListenableFuture<TbMsg> executeGenerateTransform(TbMsg prevMsg, JsonNode result) {
         if (!result.isObject()) {
             log.warn("Wrong result type: {}", result.getNodeType());
             Futures.immediateFailedFuture(new ScriptException("Wrong result type: " + result.getNodeType()));
@@ -72,12 +143,18 @@ public class RuleNodeJsScriptEngine extends RuleNodeScriptEngine<JsInvokeService
     }
 
     @Override
-    protected JsonNode convertResult(Object result) {
-        return JacksonUtil.toJsonNode(result != null ? result.toString() : null);
+    public ListenableFuture<JsonNode> executeJsonAsync(TbMsg msg) {
+        return executeScriptAsync(msg);
     }
 
     @Override
-    protected ListenableFuture<String> executeToStringTransform(JsonNode result) {
+    public ListenableFuture<String> executeToStringAsync(TbMsg msg) {
+        return Futures.transformAsync(executeScriptAsync(msg),
+                this::executeToStringTransform,
+                MoreExecutors.directExecutor());
+    }
+
+    ListenableFuture<String> executeToStringTransform(JsonNode result) {
         if (result.isTextual()) {
             return Futures.immediateFuture(result.asText());
         }
@@ -86,7 +163,13 @@ public class RuleNodeJsScriptEngine extends RuleNodeScriptEngine<JsInvokeService
     }
 
     @Override
-    protected ListenableFuture<Boolean> executeFilterTransform(JsonNode json) {
+    public ListenableFuture<Boolean> executeFilterAsync(TbMsg msg) {
+        return Futures.transformAsync(executeScriptAsync(msg),
+                this::executeFilterTransform,
+                MoreExecutors.directExecutor());
+    }
+
+    ListenableFuture<Boolean> executeFilterTransform(JsonNode json) {
         if (json.isBoolean()) {
             return Futures.immediateFuture(json.asBoolean());
         }
@@ -94,8 +177,7 @@ public class RuleNodeJsScriptEngine extends RuleNodeScriptEngine<JsInvokeService
         return Futures.immediateFailedFuture(new ScriptException("Wrong result type: " + json.getNodeType()));
     }
 
-    @Override
-    protected ListenableFuture<Set<String>> executeSwitchTransform(JsonNode result) {
+    ListenableFuture<Set<String>> executeSwitchTransform(JsonNode result) {
         if (result.isTextual()) {
             return Futures.immediateFuture(Collections.singleton(result.asText()));
         }
@@ -116,37 +198,36 @@ public class RuleNodeJsScriptEngine extends RuleNodeScriptEngine<JsInvokeService
     }
 
     @Override
-    protected Object[] prepareArgs(TbMsg msg) {
-        String[] args = new String[3];
-        if (msg.getData() != null) {
-            args[0] = msg.getData();
-        } else {
-            args[0] = "";
-        }
-        args[1] = JacksonUtil.toString(msg.getMetaData().getData());
-        args[2] = msg.getType();
-        return args;
+    public ListenableFuture<Set<String>> executeSwitchAsync(TbMsg msg) {
+        return Futures.transformAsync(executeScriptAsync(msg),
+                this::executeSwitchTransform,
+                MoreExecutors.directExecutor()); //usually runs in a callbackExecutor
     }
 
-    private static TbMsg unbindMsg(JsonNode msgData, TbMsg msg) {
-        String data = null;
-        Map<String, String> metadata = null;
-        String messageType = null;
-        if (msgData.has(RuleNodeScriptFactory.MSG)) {
-            JsonNode msgPayload = msgData.get(RuleNodeScriptFactory.MSG);
-            data = JacksonUtil.toString(msgPayload);
-        }
-        if (msgData.has(RuleNodeScriptFactory.METADATA)) {
-            JsonNode msgMetadata = msgData.get(RuleNodeScriptFactory.METADATA);
-            metadata = JacksonUtil.convertValue(msgMetadata, new TypeReference<>() {
-            });
-        }
-        if (msgData.has(RuleNodeScriptFactory.MSG_TYPE)) {
-            messageType = msgData.get(RuleNodeScriptFactory.MSG_TYPE).asText();
-        }
-        String newData = data != null ? data : msg.getData();
-        TbMsgMetaData newMetadata = metadata != null ? new TbMsgMetaData(metadata) : msg.getMetaData().copy();
-        String newMessageType = !StringUtils.isEmpty(messageType) ? messageType : msg.getType();
-        return TbMsg.transformMsg(msg, newMessageType, msg.getOriginator(), newMetadata, newData);
+    ListenableFuture<JsonNode> executeScriptAsync(TbMsg msg) {
+        log.trace("execute script async, msg {}", msg);
+        String[] inArgs = prepareArgs(msg);
+        return executeScriptAsync(msg.getCustomerId(), inArgs[0], inArgs[1], inArgs[2]);
+    }
+
+    ListenableFuture<JsonNode> executeScriptAsync(CustomerId customerId, Object... args) {
+        return Futures.transformAsync(sandboxService.invokeFunction(tenantId, customerId, this.scriptId, args),
+                o -> {
+                    try {
+                        return Futures.immediateFuture(mapper.readTree(o.toString()));
+                    } catch (Exception e) {
+                        if (e.getCause() instanceof ScriptException) {
+                            return Futures.immediateFailedFuture(e.getCause());
+                        } else if (e.getCause() instanceof RuntimeException) {
+                            return Futures.immediateFailedFuture(new ScriptException(e.getCause().getMessage()));
+                        } else {
+                            return Futures.immediateFailedFuture(new ScriptException(e));
+                        }
+                    }
+                }, MoreExecutors.directExecutor());
+    }
+
+    public void destroy() {
+        sandboxService.release(this.scriptId);
     }
 }

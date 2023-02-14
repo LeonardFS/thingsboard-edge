@@ -15,7 +15,7 @@
 ///
 
 import { NgModule } from '@angular/core';
-import { Routes } from '@angular/router';
+import { RouterModule, Routes } from '@angular/router';
 
 import { EntitiesTableComponent } from '../../components/entity/entities-table.component';
 import { Authority } from '@shared/models/authority.enum';
@@ -25,7 +25,7 @@ import { ConfirmOnExitGuard } from '@core/guards/confirm-on-exit.guard';
 import { entityDetailsPageBreadcrumbLabelFunction } from '@home/pages/home-pages.models';
 import { BreadCrumbConfig } from '@shared/components/breadcrumb';
 
-export const deviceProfilesRoutes: Routes = [
+const routes: Routes = [
   {
     path: 'deviceProfiles',
     data: {
@@ -67,6 +67,8 @@ export const deviceProfilesRoutes: Routes = [
 ];
 
 @NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule],
   providers: [
     DeviceProfilesTableConfigResolver
   ]

@@ -22,12 +22,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.mockito.AdditionalAnswers;
 import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
-import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.thingsboard.server.common.data.Customer;
 import org.thingsboard.server.common.data.Device;
@@ -39,17 +34,14 @@ import org.thingsboard.server.common.data.asset.Asset;
 import org.thingsboard.server.common.data.audit.ActionType;
 import org.thingsboard.server.common.data.edge.Edge;
 import org.thingsboard.server.common.data.id.CustomerId;
-import org.thingsboard.server.common.data.id.EdgeId;
 import org.thingsboard.server.common.data.id.TenantId;
 import org.thingsboard.server.common.data.page.PageData;
 import org.thingsboard.server.common.data.page.PageLink;
 import org.thingsboard.server.common.data.security.Authority;
-import org.thingsboard.server.dao.edge.EdgeDao;
 import org.thingsboard.server.dao.exception.DataValidationException;
 import org.thingsboard.server.dao.model.ModelConstants;
 import org.thingsboard.server.edge.imitator.EdgeImitator;
 import org.thingsboard.server.gen.edge.v1.AdminSettingsUpdateMsg;
-import org.thingsboard.server.gen.edge.v1.AssetProfileUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.AssetUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.DeviceProfileUpdateMsg;
 import org.thingsboard.server.gen.edge.v1.DeviceUpdateMsg;
@@ -70,7 +62,6 @@ import static org.thingsboard.server.dao.model.ModelConstants.NULL_UUID;
 @TestPropertySource(properties = {
         "edges.enabled=true",
 })
-@ContextConfiguration(classes = {BaseEdgeControllerTest.Config.class})
 public abstract class BaseEdgeControllerTest extends AbstractControllerTest {
 
     public static final String EDGE_HOST = "localhost";
@@ -82,18 +73,7 @@ public abstract class BaseEdgeControllerTest extends AbstractControllerTest {
     private TenantId tenantId;
     private User tenantAdmin;
 
-    @Autowired
-    private EdgeDao edgeDao;
-
-    static class Config {
-        @Bean
-        @Primary
-        public EdgeDao edgeDao(EdgeDao edgeDao) {
-            return Mockito.mock(EdgeDao.class, AdditionalAnswers.delegatesTo(edgeDao));
-        }
-    }
-
-   @Before
+    @Before
     public void beforeTest() throws Exception {
         loginSysAdmin();
 
@@ -873,31 +853,28 @@ public abstract class BaseEdgeControllerTest extends AbstractControllerTest {
         EdgeImitator edgeImitator = new EdgeImitator(EDGE_HOST, EDGE_PORT, edge.getRoutingKey(), edge.getSecret());
         edgeImitator.ignoreType(UserCredentialsUpdateMsg.class);
 
-        edgeImitator.expectMessageAmount(19);
+        edgeImitator.expectMessageAmount(12);
         edgeImitator.connect();
         assertThat(edgeImitator.waitForMessages()).as("await for messages on first connect").isTrue();
 
         assertThat(edgeImitator.findAllMessagesByType(QueueUpdateMsg.class)).as("one msg during sync process").hasSize(1);
         assertThat(edgeImitator.findAllMessagesByType(RuleChainUpdateMsg.class)).as("one msg during sync process, another from edge creation").hasSize(2);
-        assertThat(edgeImitator.findAllMessagesByType(DeviceProfileUpdateMsg.class)).as("one msg during sync process for 'default' device profile").hasSize(3);
-        assertThat(edgeImitator.findAllMessagesByType(DeviceUpdateMsg.class)).as("one msg once device assigned to edge").hasSize(2);
-        assertThat(edgeImitator.findAllMessagesByType(AssetProfileUpdateMsg.class)).as("two msgs during sync process for 'default' and 'test' asset profiles").hasSize(4);
+        assertThat(edgeImitator.findAllMessagesByType(DeviceProfileUpdateMsg.class)).as("one msg during sync process for 'default' device profile").hasSize(1);
+        assertThat(edgeImitator.findAllMessagesByType(DeviceUpdateMsg.class)).as("one msg once device assigned to edge").hasSize(1);
         assertThat(edgeImitator.findAllMessagesByType(AssetUpdateMsg.class)).as("two msgs - one during sync process, and one more once asset assigned to edge").hasSize(2);
         assertThat(edgeImitator.findAllMessagesByType(UserUpdateMsg.class)).as("one msg during sync process for tenant admin user").hasSize(1);
         assertThat(edgeImitator.findAllMessagesByType(AdminSettingsUpdateMsg.class)).as("admin setting update").hasSize(4);
 
-        edgeImitator.expectMessageAmount(14);
+        edgeImitator.expectMessageAmount(9);
         doPost("/api/edge/sync/" + edge.getId());
         assertThat(edgeImitator.waitForMessages()).as("await for messages after edge sync rest api call").isTrue();
 
         assertThat(edgeImitator.findAllMessagesByType(QueueUpdateMsg.class)).as("queue msg").hasSize(1);
         assertThat(edgeImitator.findAllMessagesByType(RuleChainUpdateMsg.class)).as("rule chain msg").hasSize(1);
-        assertThat(edgeImitator.findAllMessagesByType(DeviceProfileUpdateMsg.class)).as("device profile msg").hasSize(2);
-        assertThat(edgeImitator.findAllMessagesByType(AssetProfileUpdateMsg.class)).as("asset profile msg").hasSize(3);
+        assertThat(edgeImitator.findAllMessagesByType(DeviceProfileUpdateMsg.class)).as("device profile msg").hasSize(1);
         assertThat(edgeImitator.findAllMessagesByType(AssetUpdateMsg.class)).as("asset update msg").hasSize(1);
         assertThat(edgeImitator.findAllMessagesByType(UserUpdateMsg.class)).as("user update msg").hasSize(1);
         assertThat(edgeImitator.findAllMessagesByType(AdminSettingsUpdateMsg.class)).as("admin setting update msg").hasSize(4);
-        assertThat(edgeImitator.findAllMessagesByType(DeviceUpdateMsg.class)).as("asset update msg").hasSize(1);
 
         edgeImitator.allowIgnoredTypes();
         try {
@@ -913,20 +890,4 @@ public abstract class BaseEdgeControllerTest extends AbstractControllerTest {
                 .andExpect(status().isOk());
     }
 
-    @Test
-    public void testDeleteEdgeWithDeleteRelationsOk() throws Exception {
-        EdgeId edgeId = savedEdge("Edge for Test WithRelationsOk").getId();
-        testEntityDaoWithRelationsOk(savedTenant.getId(), edgeId, "/api/edge/" + edgeId);
-    }
-
-    @Test
-    public void testDeleteEdgeExceptionWithRelationsTransactional() throws Exception {
-        EdgeId edgeId = savedEdge("Edge for Test WithRelations Transactional Exception").getId();
-        testEntityDaoWithRelationsTransactionalException(edgeDao, savedTenant.getId(), edgeId, "/api/edge/" + edgeId);
-    }
-
-    private Edge savedEdge(String name) {
-        Edge edge = constructEdge(name, "default");
-        return doPost("/api/edge", edge, Edge.class);
-    }
 }

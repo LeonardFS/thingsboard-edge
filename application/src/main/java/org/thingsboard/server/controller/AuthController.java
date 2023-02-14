@@ -42,22 +42,24 @@ import org.thingsboard.server.common.data.exception.ThingsboardErrorCode;
 import org.thingsboard.server.common.data.exception.ThingsboardException;
 import org.thingsboard.server.common.data.id.TenantId;
 import org.thingsboard.server.common.data.security.UserCredentials;
-import org.thingsboard.server.common.data.security.event.UserCredentialsInvalidationEvent;
-import org.thingsboard.server.common.data.security.event.UserSessionInvalidationEvent;
+import org.thingsboard.server.common.data.security.event.UserAuthDataChangedEvent;
+import org.thingsboard.server.common.data.security.model.JwtToken;
 import org.thingsboard.server.common.data.security.model.SecuritySettings;
 import org.thingsboard.server.common.data.security.model.UserPasswordPolicy;
 import org.thingsboard.server.dao.audit.AuditLogService;
 import org.thingsboard.server.queue.util.TbCoreComponent;
+import org.thingsboard.server.service.security.auth.jwt.RefreshTokenRepository;
 import org.thingsboard.server.service.security.auth.rest.RestAuthenticationDetails;
 import org.thingsboard.server.service.security.model.ActivateUserRequest;
 import org.thingsboard.server.service.security.model.ChangePasswordRequest;
-import org.thingsboard.server.common.data.security.model.JwtPair;
+import org.thingsboard.server.service.security.model.JwtTokenPair;
 import org.thingsboard.server.service.security.model.ResetPasswordEmailRequest;
 import org.thingsboard.server.service.security.model.ResetPasswordRequest;
 import org.thingsboard.server.service.security.model.SecurityUser;
 import org.thingsboard.server.service.security.model.UserPrincipal;
 import org.thingsboard.server.service.security.model.token.JwtTokenFactory;
 import org.thingsboard.server.service.security.system.SystemSecurityService;
+import ua_parser.Client;
 
 import javax.servlet.http.HttpServletRequest;
 import java.net.URI;
@@ -71,6 +73,7 @@ import java.net.URISyntaxException;
 public class AuthController extends BaseController {
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtTokenFactory tokenFactory;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final MailService mailService;
     private final SystemSecurityService systemSecurityService;
     private final AuditLogService auditLogService;
@@ -125,7 +128,7 @@ public class AuthController extends BaseController {
 
             sendEntityNotificationMsg(getTenantId(), userCredentials.getUserId(), EdgeEventActionType.CREDENTIALS_UPDATED);
 
-            eventPublisher.publishEvent(new UserCredentialsInvalidationEvent(securityUser.getId()));
+            eventPublisher.publishEvent(new UserAuthDataChangedEvent(securityUser.getId()));
             ObjectNode response = JacksonUtil.newObjectNode();
             response.put("token", tokenFactory.createAccessJwtToken(securityUser).getToken());
             response.put("refreshToken", tokenFactory.createRefreshToken(securityUser).getToken());
@@ -236,7 +239,7 @@ public class AuthController extends BaseController {
     @RequestMapping(value = "/noauth/activate", method = RequestMethod.POST)
     @ResponseStatus(value = HttpStatus.OK)
     @ResponseBody
-    public JwtPair activateUser(
+    public JwtTokenPair activateUser(
             @ApiParam(value = "Activate user request.")
             @RequestBody ActivateUserRequest activateRequest,
             @RequestParam(required = false, defaultValue = "true") boolean sendActivationMail,
@@ -265,7 +268,10 @@ public class AuthController extends BaseController {
 
             sendEntityNotificationMsg(user.getTenantId(), user.getId(), EdgeEventActionType.CREDENTIALS_UPDATED);
 
-            return tokenFactory.createTokenPair(securityUser);
+            JwtToken accessToken = tokenFactory.createAccessJwtToken(securityUser);
+            JwtToken refreshToken = refreshTokenRepository.requestRefreshToken(securityUser);
+
+            return new JwtTokenPair(accessToken.getToken(), refreshToken.getToken());
         } catch (Exception e) {
             throw handleException(e);
         }
@@ -278,7 +284,7 @@ public class AuthController extends BaseController {
     @RequestMapping(value = "/noauth/resetPassword", method = RequestMethod.POST)
     @ResponseStatus(value = HttpStatus.OK)
     @ResponseBody
-    public JwtPair resetPassword(
+    public JwtTokenPair resetPassword(
             @ApiParam(value = "Reset password request.")
             @RequestBody ResetPasswordRequest resetPasswordRequest,
             HttpServletRequest request) throws ThingsboardException {
@@ -303,9 +309,11 @@ public class AuthController extends BaseController {
                 String email = user.getEmail();
                 mailService.sendPasswordWasResetEmail(loginUrl, email);
 
-                eventPublisher.publishEvent(new UserCredentialsInvalidationEvent(securityUser.getId()));
+                eventPublisher.publishEvent(new UserAuthDataChangedEvent(securityUser.getId()));
+                JwtToken accessToken = tokenFactory.createAccessJwtToken(securityUser);
+                JwtToken refreshToken = refreshTokenRepository.requestRefreshToken(securityUser);
 
-                return tokenFactory.createTokenPair(securityUser);
+                return new JwtTokenPair(accessToken.getToken(), refreshToken.getToken());
             } else {
                 throw new ThingsboardException("Invalid reset token!", ThingsboardErrorCode.BAD_REQUEST_PARAMS);
             }
@@ -316,9 +324,49 @@ public class AuthController extends BaseController {
 
     private void logLogoutAction(HttpServletRequest request) throws ThingsboardException {
         try {
-            var user = getCurrentUser();
-            systemSecurityService.logLoginAction(user, new RestAuthenticationDetails(request), ActionType.LOGOUT, null);
-            eventPublisher.publishEvent(new UserSessionInvalidationEvent(user.getSessionId()));
+            SecurityUser user = getCurrentUser();
+            RestAuthenticationDetails details = new RestAuthenticationDetails(request);
+            String clientAddress = details.getClientAddress();
+            String browser = "Unknown";
+            String os = "Unknown";
+            String device = "Unknown";
+            if (details.getUserAgent() != null) {
+                Client userAgent = details.getUserAgent();
+                if (userAgent.userAgent != null) {
+                    browser = userAgent.userAgent.family;
+                    if (userAgent.userAgent.major != null) {
+                        browser += " " + userAgent.userAgent.major;
+                        if (userAgent.userAgent.minor != null) {
+                            browser += "." + userAgent.userAgent.minor;
+                            if (userAgent.userAgent.patch != null) {
+                                browser += "." + userAgent.userAgent.patch;
+                            }
+                        }
+                    }
+                }
+                if (userAgent.os != null) {
+                    os = userAgent.os.family;
+                    if (userAgent.os.major != null) {
+                        os += " " + userAgent.os.major;
+                        if (userAgent.os.minor != null) {
+                            os += "." + userAgent.os.minor;
+                            if (userAgent.os.patch != null) {
+                                os += "." + userAgent.os.patch;
+                                if (userAgent.os.patchMinor != null) {
+                                    os += "." + userAgent.os.patchMinor;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (userAgent.device != null) {
+                    device = userAgent.device.family;
+                }
+            }
+            auditLogService.logEntityAction(
+                    user.getTenantId(), user.getCustomerId(), user.getId(),
+                    user.getName(), user.getId(), null, ActionType.LOGOUT, null, clientAddress, browser, os, device);
+
         } catch (Exception e) {
             throw handleException(e);
         }

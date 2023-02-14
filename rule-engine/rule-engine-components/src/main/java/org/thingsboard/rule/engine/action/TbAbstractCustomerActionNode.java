@@ -29,7 +29,6 @@ import org.thingsboard.rule.engine.api.TbNodeConfiguration;
 import org.thingsboard.rule.engine.api.TbNodeException;
 import org.thingsboard.rule.engine.api.util.TbNodeUtils;
 import org.thingsboard.server.common.data.Customer;
-import org.thingsboard.server.common.data.DataConstants;
 import org.thingsboard.server.common.data.id.CustomerId;
 import org.thingsboard.server.common.msg.TbMsg;
 import org.thingsboard.server.dao.customer.CustomerService;
@@ -85,8 +84,7 @@ public abstract class TbAbstractCustomerActionNode<C extends TbAbstractCustomerA
         return ctx.getDbCallbackExecutor().executeAsync(() -> {
             Optional<CustomerId> customerId = customerIdCache.get(key);
             if (!customerId.isPresent()) {
-                throw new RuntimeException("No customer found with name '" + key.getCustomerTitle() + "'."
-                        + DataConstants.ENTITY_CREATION_ON_EDGE_NOT_SUPPORTED_WARNING);
+                throw new RuntimeException("No customer found with name '" + key.getCustomerTitle() + "'.");
             }
             return customerId.get();
         });
@@ -94,9 +92,6 @@ public abstract class TbAbstractCustomerActionNode<C extends TbAbstractCustomerA
 
     @Override
     public void destroy() {
-        if (customerIdCache != null) {
-            customerIdCache.invalidateAll();
-        }
     }
 
     @Data
@@ -122,18 +117,16 @@ public abstract class TbAbstractCustomerActionNode<C extends TbAbstractCustomerA
                     service.findCustomerByTenantIdAndTitle(ctx.getTenantId(), key.getCustomerTitle());
             if (customerOptional.isPresent()) {
                 return Optional.of(customerOptional.get().getId());
+            } else if (createIfNotExists) {
+                Customer newCustomer = new Customer();
+                newCustomer.setTitle(key.getCustomerTitle());
+                newCustomer.setTenantId(ctx.getTenantId());
+                Customer savedCustomer = service.saveCustomer(newCustomer);
+                ctx.enqueue(ctx.customerCreatedMsg(savedCustomer, ctx.getSelfId()),
+                        () -> log.trace("Pushed Customer Created message: {}", savedCustomer),
+                        throwable -> log.warn("Failed to push Customer Created message: {}", savedCustomer, throwable));
+                return Optional.of(savedCustomer.getId());
             }
-            // TODO: @voba customers are not created on the edge at the moment
-            // else if (createIfNotExists) {
-            //    Customer newCustomer = new Customer();
-            //    newCustomer.setTitle(key.getCustomerTitle());
-            //    newCustomer.setTenantId(ctx.getTenantId());
-            //    Customer savedCustomer = service.saveCustomer(newCustomer);
-            //    ctx.enqueue(ctx.customerCreatedMsg(savedCustomer, ctx.getSelfId()),
-            //            () -> log.trace("Pushed Customer Created message: {}", savedCustomer),
-            //            throwable -> log.warn("Failed to push Customer Created message: {}", savedCustomer, throwable));
-            //    return Optional.of(savedCustomer.getId());
-            //}
             return Optional.empty();
         }
 

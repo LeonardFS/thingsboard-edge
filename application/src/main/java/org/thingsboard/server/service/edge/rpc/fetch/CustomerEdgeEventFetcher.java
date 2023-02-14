@@ -29,8 +29,8 @@ import org.thingsboard.server.common.data.page.PageLink;
 import java.util.ArrayList;
 import java.util.List;
 
-@Slf4j
 @AllArgsConstructor
+@Slf4j
 public class CustomerEdgeEventFetcher implements EdgeEventFetcher {
 
     @Override

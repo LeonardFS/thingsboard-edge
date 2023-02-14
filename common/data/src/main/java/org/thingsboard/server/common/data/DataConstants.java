@@ -28,7 +28,6 @@ public class DataConstants {
     public static final String CLIENT_SCOPE = "CLIENT_SCOPE";
     public static final String SERVER_SCOPE = "SERVER_SCOPE";
     public static final String SHARED_SCOPE = "SHARED_SCOPE";
-    public static final String NOTIFY_DEVICE_METADATA_KEY = "notifyDevice";
     public static final String LATEST_TS = "LATEST_TS";
     public static final String IS_NEW_ALARM = "isNewAlarm";
     public static final String IS_EXISTING_ALARM = "isExistingAlarm";
@@ -41,8 +40,6 @@ public class DataConstants {
     public static final String EXPIRATION_TIME = "expirationTime";
     public static final String ADDITIONAL_INFO = "additionalInfo";
     public static final String RETRIES = "retries";
-    public static final String EDGE_ID = "edgeId";
-    public static final String DEVICE_ID = "deviceId";
     public static final String COAP_TRANSPORT_NAME = "COAP";
     public static final String LWM2M_TRANSPORT_NAME = "LWM2M";
     public static final String MQTT_TRANSPORT_NAME = "MQTT";
@@ -82,10 +79,6 @@ public class DataConstants {
     public static final String ENTITY_ASSIGNED_TO_EDGE = "ENTITY_ASSIGNED_TO_EDGE";
     public static final String ENTITY_UNASSIGNED_FROM_EDGE = "ENTITY_UNASSIGNED_FROM_EDGE";
 
-    public static final String RELATION_ADD_OR_UPDATE = "RELATION_ADD_OR_UPDATE";
-    public static final String RELATION_DELETED = "RELATION_DELETED";
-    public static final String RELATIONS_DELETED = "RELATIONS_DELETED";
-
     public static final String RPC_CALL_FROM_SERVER_TO_DEVICE = "RPC_CALL_FROM_SERVER_TO_DEVICE";
 
     public static final String RPC_QUEUED = "RPC_QUEUED";
@@ -122,7 +115,4 @@ public class DataConstants {
     // edge constants
     public static final String CLOUD_MSG_SOURCE = "cloud";
     public static final String EDGE_SETTINGS_ATTR_KEY = "edgeSettings";
-
-    public static final String ENTITY_CREATION_ON_EDGE_NOT_SUPPORTED_WARNING = "Please create it on the cloud and assign to edge - " +
-            "creation of this entity type is not supported on the edge at the moment!";
 }

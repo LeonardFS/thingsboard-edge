@@ -20,5 +20,4 @@ import org.thingsboard.server.edge.BaseEdgeTest;
 
 @DaoSqlTest
 public class EdgeSqlTest extends BaseEdgeTest {
-
 }

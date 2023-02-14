@@ -15,6 +15,7 @@
  */
 package org.thingsboard.rule.engine.metadata;
 
+import com.google.common.util.concurrent.Futures;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,6 +31,8 @@ import org.thingsboard.server.common.data.id.UserId;
 
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -42,7 +45,6 @@ public class TbGetTenantAttributeNodeTest extends AbstractAttributeNodeTest {
     @Before
     public void initDataForTests() throws TbNodeException {
         init(new TbGetTenantAttributeNode());
-
         user.setTenantId(tenantId);
         user.setId(new UserId(UUID.randomUUID()));
 
@@ -51,8 +53,6 @@ public class TbGetTenantAttributeNodeTest extends AbstractAttributeNodeTest {
 
         device.setTenantId(tenantId);
         device.setId(new DeviceId(UUID.randomUUID()));
-
-        when(ctx.getTenantId()).thenReturn(tenantId);
     }
 
     @Override
@@ -67,17 +67,20 @@ public class TbGetTenantAttributeNodeTest extends AbstractAttributeNodeTest {
 
     @Test
     public void errorThrownIfCannotLoadAttributes() {
+        mockFindUser(user);
         errorThrownIfCannotLoadAttributes(user);
     }
 
     @Test
     public void errorThrownIfCannotLoadAttributesAsync() {
+        mockFindUser(user);
         errorThrownIfCannotLoadAttributesAsync(user);
     }
 
     @Test
-    public void failedChainUsedIfTenantIdFromCtxCannotBeFound() {
-        when(ctx.getTenantId()).thenReturn(null);
+    public void failedChainUsedIfCustomerCannotBeFound() {
+        when(ctx.getUserService()).thenReturn(userService);
+        when(userService.findUserByIdAsync(any(), eq(user.getId()))).thenReturn(Futures.immediateFuture(null));
         failedChainUsedIfCustomerCannotBeFound(user);
     }
 
@@ -88,21 +91,25 @@ public class TbGetTenantAttributeNodeTest extends AbstractAttributeNodeTest {
 
     @Test
     public void usersCustomerAttributesFetched() {
+        mockFindUser(user);
         usersCustomerAttributesFetched(user);
     }
 
     @Test
     public void assetsCustomerAttributesFetched() {
+        mockFindAsset(asset);
         assetsCustomerAttributesFetched(asset);
     }
 
     @Test
     public void deviceCustomerAttributesFetched() {
+        mockFindDevice(device);
         deviceCustomerAttributesFetched(device);
     }
 
     @Test
     public void deviceCustomerTelemetryFetched() throws TbNodeException {
+        mockFindDevice(device);
         deviceCustomerTelemetryFetched(device);
     }
 }

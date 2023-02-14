@@ -115,7 +115,6 @@ export class AssetsTableConfigResolver implements Resolve<EntityTableConfig<Asse
     const routeParams = route.params;
     this.config.componentsData = {
       assetScope: route.data.assetsType,
-      assetProfileId: null,
       assetType: '',
       edgeId: routeParams.edgeId
     };
@@ -157,7 +156,7 @@ export class AssetsTableConfigResolver implements Resolve<EntityTableConfig<Asse
         this.config.entitiesDeleteEnabled = this.config.componentsData.assetScope === 'tenant';
         this.config.deleteEnabled = () => this.config.componentsData.assetScope === 'tenant';
 
-        // @voba - edge read-only
+        // edge read-only
         this.config.detailsReadonly = () => true;
         this.config.deleteEnabled = () => false;
         this.config.addEnabled = false;
@@ -171,8 +170,8 @@ export class AssetsTableConfigResolver implements Resolve<EntityTableConfig<Asse
     const columns: Array<EntityTableColumn<AssetInfo>> = [
       new DateEntityTableColumn<AssetInfo>('createdTime', 'common.created-time', this.datePipe, '150px'),
       new EntityTableColumn<AssetInfo>('name', 'asset.name', '25%'),
-      new EntityTableColumn<AssetInfo>('assetProfileName', 'asset-profile.asset-profile', '25%'),
-      new EntityTableColumn<AssetInfo>('label', 'asset.label', '25%'),
+      new EntityTableColumn<AssetInfo>('type', 'asset.asset-type', '25%'),
+      new EntityTableColumn<DeviceInfo>('label', 'asset.label', '25%'),
     ];
     if (assetScope === 'tenant') {
       columns.push(
@@ -189,16 +188,14 @@ export class AssetsTableConfigResolver implements Resolve<EntityTableConfig<Asse
   configureEntityFunctions(assetScope: string): void {
     if (assetScope === 'tenant') {
       this.config.entitiesFetchFunction = pageLink =>
-        this.assetService.getTenantAssetInfosByAssetProfileId(pageLink, this.config.componentsData.assetProfileId !== null ?
-          this.config.componentsData.assetProfileId.id : '');
+        this.assetService.getTenantAssetInfos(pageLink, this.config.componentsData.assetType);
       this.config.deleteEntity = id => this.assetService.deleteAsset(id.id);
     } else if (assetScope === 'edge' || assetScope === 'edge_customer_user') {
       this.config.entitiesFetchFunction = pageLink =>
         this.assetService.getEdgeAssets(this.config.componentsData.edgeId, pageLink, this.config.componentsData.assetType);
     } else {
       this.config.entitiesFetchFunction = pageLink =>
-        this.assetService.getCustomerAssetInfosByAssetProfileId(this.customerId, pageLink,
-          this.config.componentsData.assetProfileId !== null ? this.config.componentsData.assetProfileId.id : '');
+        this.assetService.getCustomerAssetInfos(this.customerId, pageLink, this.config.componentsData.assetType);
       this.config.deleteEntity = id => this.assetService.unassignAssetFromCustomer(id.id);
     }
   }

@@ -21,15 +21,11 @@ import { MarkerClusterGroup, MarkerClusterGroupOptions } from 'leaflet.markerclu
 import '@geoman-io/leaflet-geoman-free';
 
 import {
-  CircleData,
-  defaultMapSettings,
+  CircleData, defaultMapSettings,
+  MarkerClusteringSettings,
   MarkerIconInfo,
   MarkerImageInfo,
-  WidgetMarkerClusteringSettings,
-  WidgetMarkersSettings,
-  WidgetPolygonSettings,
-  WidgetPolylineSettings,
-  WidgetUnitedMapSettings
+  WidgetPolygonSettings, WidgetPolylineSettings, WidgetMarkersSettings, WidgetUnitedMapSettings
 } from './map-models';
 import { Marker } from './markers';
 import { Observable, of } from 'rxjs';
@@ -37,7 +33,10 @@ import { Polyline } from './polyline';
 import { Polygon } from './polygon';
 import { Circle } from './circle';
 import { createTooltip, isCutPolygon, isJSON } from '@home/components/widget/lib/maps/maps-utils';
-import { checkLngLat, createLoadingDiv } from '@home/components/widget/lib/maps/common-maps-utils';
+import {
+  checkLngLat,
+  createLoadingDiv
+} from '@home/components/widget/lib/maps/common-maps-utils';
 import { WidgetContext } from '@home/models/widget-component.models';
 import {
   deepClone,
@@ -45,9 +44,7 @@ import {
   formattedDataFormDatasourceData,
   isDefinedAndNotNull,
   isNotEmptyStr,
-  isString,
-  mergeFormattedData,
-  safeExecute
+  isString, mergeFormattedData, safeExecute
 } from '@core/utils';
 import { TranslateService } from '@ngx-translate/core';
 import {
@@ -55,8 +52,8 @@ import {
   SelectEntityDialogData
 } from '@home/components/widget/lib/maps/dialogs/select-entity-dialog.component';
 import { MatDialog } from '@angular/material/dialog';
-import { FormattedData, ReplaceInfo } from '@shared/models/widget.models';
 import ITooltipsterInstance = JQueryTooltipster.ITooltipsterInstance;
+import { FormattedData, ReplaceInfo } from '@shared/models/widget.models';
 
 export default abstract class LeafletMap {
 
@@ -101,8 +98,6 @@ export default abstract class LeafletMap {
     translateService: TranslateService;
     tooltipInstances: ITooltipsterInstance[] = [];
 
-    clusteringSettings: MarkerClusterGroupOptions;
-
     protected constructor(public ctx: WidgetContext,
                           public $container: HTMLElement,
                           options: WidgetUnitedMapSettings) {
@@ -116,68 +111,35 @@ export default abstract class LeafletMap {
     }
 
     private initMarkerClusterSettings() {
-      const markerClusteringSettings: WidgetMarkerClusteringSettings = this.options;
-      if (markerClusteringSettings.useClusterMarkers) {
-        // disabled marker cluster icon
-        (L as any).MarkerCluster = (L as any).MarkerCluster.extend({
-          options: { pmIgnore: true, ...L.Icon.prototype.options }
-        });
-        this.clusteringSettings = {
-            spiderfyOnMaxZoom: markerClusteringSettings.spiderfyOnMaxZoom,
-            zoomToBoundsOnClick: markerClusteringSettings.zoomOnClick,
-            showCoverageOnHover: markerClusteringSettings.showCoverageOnHover,
-            removeOutsideVisibleBounds: markerClusteringSettings.removeOutsideVisibleBounds,
-            animate: markerClusteringSettings.animate,
-            chunkedLoading: markerClusteringSettings.chunkedLoading,
-            pmIgnore: true,
-            spiderLegPolylineOptions: {
-              pmIgnore: true
-            },
-            polygonOptions: {
-              pmIgnore: true
+        const markerClusteringSettings: MarkerClusteringSettings = this.options;
+        if (markerClusteringSettings.useClusterMarkers) {
+            // disabled marker cluster icon
+            (L as any).MarkerCluster = (L as any).MarkerCluster.extend({
+              options: { pmIgnore: true, ...L.Icon.prototype.options }
+            });
+            const clusteringSettings: MarkerClusterGroupOptions = {
+                spiderfyOnMaxZoom: markerClusteringSettings.spiderfyOnMaxZoom,
+                zoomToBoundsOnClick: markerClusteringSettings.zoomOnClick,
+                showCoverageOnHover: markerClusteringSettings.showCoverageOnHover,
+                removeOutsideVisibleBounds: markerClusteringSettings.removeOutsideVisibleBounds,
+                animate: markerClusteringSettings.animate,
+                chunkedLoading: markerClusteringSettings.chunkedLoading,
+                pmIgnore: true,
+                spiderLegPolylineOptions: {
+                  pmIgnore: true
+                },
+                polygonOptions: {
+                  pmIgnore: true
+                }
+            };
+            if (markerClusteringSettings.maxClusterRadius && markerClusteringSettings.maxClusterRadius > 0) {
+                clusteringSettings.maxClusterRadius = Math.floor(markerClusteringSettings.maxClusterRadius);
             }
-        };
-        if (markerClusteringSettings.useIconCreateFunction && markerClusteringSettings.clusterMarkerFunction) {
-          this.clusteringSettings.iconCreateFunction = (cluster) => {
-            const childCount = cluster.getChildCount();
-            const formattedData = cluster.getAllChildMarkers().map(clusterMarker => clusterMarker.options.tbMarkerData);
-            const markerColor = markerClusteringSettings.clusterMarkerFunction
-              ? safeExecute(markerClusteringSettings.parsedClusterMarkerFunction,
-                [formattedData, childCount])
-              : null;
-            if (isDefinedAndNotNull(markerColor) && tinycolor(markerColor).isValid()) {
-              const parsedColor = tinycolor(markerColor);
-              return L.divIcon({
-                html: `<div style="background-color: ${parsedColor.setAlpha(0.4).toRgbString()};" class="marker-cluster tb-cluster-marker-element">` +
-                  `<div style="background-color: ${parsedColor.setAlpha(0.9).toRgbString()};"><span>` + childCount + '</span></div></div>',
-                iconSize: new L.Point(40, 40),
-                className: 'tb-cluster-marker-container'
-              });
-            } else {
-              let c = ' marker-cluster-';
-              if (childCount < 10) {
-                c += 'small';
-              } else if (childCount < 100) {
-                c += 'medium';
-              } else {
-                c += 'large';
-              }
-              return new L.DivIcon({
-                html: '<div><span>' + childCount + '</span></div>',
-                className: 'marker-cluster' + c,
-                iconSize: new L.Point(40, 40)
-              });
+            if (markerClusteringSettings.maxZoom && markerClusteringSettings.maxZoom >= 0 && markerClusteringSettings.maxZoom < 19) {
+                clusteringSettings.disableClusteringAtZoom = Math.floor(markerClusteringSettings.maxZoom);
             }
-          };
+            this.markersCluster = new MarkerClusterGroup(clusteringSettings);
         }
-        if (markerClusteringSettings.maxClusterRadius && markerClusteringSettings.maxClusterRadius > 0) {
-            this.clusteringSettings.maxClusterRadius = Math.floor(markerClusteringSettings.maxClusterRadius);
-        }
-        if (markerClusteringSettings.maxZoom && markerClusteringSettings.maxZoom >= 0 && markerClusteringSettings.maxZoom < 19) {
-            this.clusteringSettings.disableClusteringAtZoom = Math.floor(markerClusteringSettings.maxZoom);
-        }
-        this.markersCluster = new MarkerClusterGroup(this.clusteringSettings);
-      }
     }
 
     private selectEntityWithoutLocationDialog(shapes: L.PM.SUPPORTED_SHAPES): Observable<FormattedData> {
@@ -372,7 +334,6 @@ export default abstract class LeafletMap {
           drawRectangle: false,
           drawPolyline: false,
           drawPolygon: false,
-          drawText: false,
           dragMode: !this.options.hideEditControlButton,
           editMode: (this.editPolygons || this.editCircle) && !this.options.hideEditControlButton,
           cutPolygon: false,
@@ -532,12 +493,12 @@ export default abstract class LeafletMap {
           .find('a[role="button"]:not(.leaflet-pm-action)')
           .each((index, element) => {
             let title;
-            if (element.title) {
+            if (element.children.length) {
+              title = (element.children[0] as HTMLElement).title;
+              $(element).children().removeAttr('title');
+            } else {
               title = element.title;
               $(element).removeAttr('title');
-            } else if (element.parentElement.title) {
-              title = element.parentElement.title;
-              $(element).parent().removeAttr('title');
             }
             const tooltip =  $(element).tooltipster(
               {
