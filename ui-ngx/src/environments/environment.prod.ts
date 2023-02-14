@@ -15,7 +15,7 @@
 ///
 
 export const environment = {
-  appTitle: 'ThingsBoard',
+  appTitle: 'Request IoT Dashboard',
   production: true,
 // @ts-ignore
   tbVersion: TB_VERSION,

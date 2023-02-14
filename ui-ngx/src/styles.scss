@@ -906,6 +906,13 @@ mat-label {
   }
 
   .mat-form-field{
+    .mat-form-field-label{
+      color: black !important;
+    }
+
+    .mat-form-field-underline {
+      background-color: black !important;
+  }
     .mat-icon {
       margin-right: 4px;
       margin-left: 4px;
@@ -923,9 +930,10 @@ mat-label {
   // Material table
 
   mat-toolbar.mat-primary {
+    color: black !important;
     button.mat-icon-button {
       mat-icon {
-        color: white;
+        color: black !important;
       }
     }
   }
@@ -1211,6 +1219,7 @@ mat-label {
 
   .mat-card-subtitle, .mat-card-content {
     font-size: 16px;
+    color: black !important;
   }
 
   .mat-toolbar > button:first-child {
@@ -1235,6 +1244,7 @@ mat-label {
   }
 
   .mat-button, .mat-flat-button, .mat-stroked-button, .mat-raised-button {
+    color: black !important;
     &:not(.mat-icon-button) {
       @media #{$mat-lt-md} {
         padding: 0 6px;

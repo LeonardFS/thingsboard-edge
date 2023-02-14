@@ -26,7 +26,7 @@ export class LogoComponent {
   logo = 'assets/logo_title_white_edge.svg';
 
   gotoThingsboard(): void {
-    window.open('https://thingsboard.io', '_blank');
+    window.open('https://www.requestiot.com', '_blank');
   }
 
 }
